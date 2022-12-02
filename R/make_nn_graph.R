@@ -109,12 +109,23 @@ make_nn_graph<- function(xlim, ylim, cv_pars = c(1, 0.3, 2.5), cv_code = 2) {
   idx<- as.matrix(idx)
   rownames(idx)<- NULL
 
+  idx_order<- array(0, dim = c(xl, yl, vl))
+  for( row in seq(nrow(idx)) ) {
+    idx_order[idx[row, "i"], idx[row, "j"], idx[row, "k"]]<- row
+  }
+
+  graph_ordered<- TRUE
   nn_list<- lapply(seq(nrow(idx)), function(i) {
-    return(list(
+    node<- list(
       to = idx[i, , drop = FALSE],
       from = parent_finder(idx[i, ])
-    ))
+    )
+    if( !all(idx_order[node$from] < idx_order[node$to]) ) {
+      graph_ordered<<- FALSE
+    }
+
+    return( node )
   })
 
-  return( list(stars = a, graph = nn_list) )
+  return( list(stars = a, graph = nn_list, graph_ordered = graph_ordered) )
 }

@@ -13,16 +13,13 @@ class conditional_normal {
     );
     conditional_normal() = default;
 
-    // Interpolate marginal mean of conditional variables as weighted average of conditioning variables means
-    vector<Type> interpolate_mean(const vector<Type>& mu);
-
     // Compute conditional mean
     vector<Type> conditional_mean(
       const vector<Type>& x,
       const vector<Type>& mu
     );
 
-    // Compute conditional negative log-likelihood
+    // Compute conditional log-likelihood
     Type loglikelihood(
       const vector<Type>& x,
       const vector<Type>& mu
@@ -37,6 +34,7 @@ class conditional_normal {
     // Compute condiitonal covariance matrix
     matrix<Type> conditional_cov() { return mvn.cov(); }
 };
+
 
 
 template<class Type>
@@ -59,34 +57,6 @@ conditional_normal<Type>::conditional_normal(
   mvn = MVNORM_t<Type>(sigma_p);
 }
 
-
-template<class Type>
-vector<Type> conditional_normal<Type>::interpolate_mean(const vector<Type>& mu) {
-  vector<Type> mu_p(np);
-  vector<Type> mu_c = mu.segment(np, nc);
-
-  vector<Type> num = vector<Type>(c_sigma_inv * mu_c.matrix());
-  vector<Type> ones(nc);
-  ones.setZero();
-  ones = 1.0 + ones;
-
-  vector<Type> denom = vector<Type>(c_sigma_inv * ones.matrix());
-  for(int p = 0; p < np; p++) {
-    if( denom(p) == 0 ) {
-      mu_p(p) = 0.0;
-    } else {
-      mu_p(p) = num(p) / denom(p);
-    }
-  }
-
-  vector<Type> new_mu(mu.size());
-  new_mu << mu_p, mu_c;
-
-  return new_mu;
-}
-
-
-
 template<class Type>
 vector<Type> conditional_normal<Type>::conditional_mean(
     const vector<Type>& x,
@@ -103,9 +73,6 @@ vector<Type> conditional_normal<Type>::conditional_mean(
   return conditional_mean;
 }
 
-
-
-
 template<class Type>
 Type conditional_normal<Type>::loglikelihood(
     const vector<Type>& x,
@@ -114,7 +81,6 @@ Type conditional_normal<Type>::loglikelihood(
   vector<Type> mu_p = conditional_mean(x, mu);
   return -1.0 * mvn(x_p - mu_p);
 }
-
 
 template<class Type>
 vector<Type> conditional_normal<Type>::simulate(

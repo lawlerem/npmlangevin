@@ -16,6 +16,7 @@ VignetteBuilder: knitr
 Depends: 
     sf,
     stars,
+    tmap,
     TMB
 LinkingTo: 
     Rcpp,

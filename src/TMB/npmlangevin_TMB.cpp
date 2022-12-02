@@ -3,8 +3,14 @@
 using namespace density;
 
 #include "include/covariance.hpp"
+#include "include/conditional_normal.hpp"
+#include "include/graph.hpp"
+#include "include/nngp.hpp"
+
 
 #include "model/covariance_1d_deriv.hpp"
+#include "model/nngp_model.hpp"
+
 #include "other/covariance_exploration.hpp"
 
 
@@ -15,6 +21,8 @@ Type objective_function<Type>::operator() () {
     return covariance_exploration(this);
   } else if( model == "covariance_1d_deriv" ) {
     return covariance_1d_deriv(this);
+  } else if( model == "nngp_model" ) {
+    return nngp_model(this);
   } else {
     error("Unknown model.");
   }

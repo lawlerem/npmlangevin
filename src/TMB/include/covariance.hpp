@@ -14,7 +14,7 @@ class covariance {
     template<typename T> T d(const vector<T>& x1, const vector<T>& x2);
 
     // Covariance function, gradient, and hessian
-    template<typename T> T operator() (const vector<T>& x);
+    template<typename T> T operator() (const vector<T>& x); // x = c(x1, x2)
     template<typename T> T operator() (const vector<T>& x1, const vector<T>& x2);
     template <typename T> vector<T> gradient(const vector<T>& x1, const vector<T>& x2);
     template<typename T> matrix<T> hessian(const vector<T>& x1, const vector<T>& x2);

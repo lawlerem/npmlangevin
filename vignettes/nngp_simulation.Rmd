@@ -1,0 +1,95 @@
+---
+title: "nngp_simulation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{nngp_simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(npmlangevin)
+```
+
+```{r}
+xlim<- c(-2, 2)
+ylim<- c(-2, 2)
+cv_code<- 2
+cv_pars<- c(1, 0.3, 2.5)
+```
+
+```{r}
+g<- make_nn_graph(
+  x = xlim,
+  y = ylim,
+  cv_pars = cv_pars,
+  cv_code = cv_code
+)
+
+obj<- MakeADFun(
+  data = list(
+    model = "nngp_model",
+    cv_code = cv_code,
+    g = list(
+      st_get_dimension_values(g$stars, "x"),
+      st_get_dimension_values(g$stars, "x"),
+      lapply(lapply(g$graph,`[[`, 1), `+`, -1),
+      lapply(lapply(g$graph,`[[`, 2), `+`, -1)
+    ),
+    y = g$stars$w
+  ),
+  para = list(
+    working_cv_pars = log(cv_pars),
+    w = g$stars$w
+  ),
+  random = "w",
+  DLL = "npmlangevin_TMB"
+)
+sim<- obj$simulate()
+g$stars$w<- sim$w
+
+fitobj<- MakeADFun(
+  data = list(
+    model = "nngp_model",
+    cv_code = cv_code,
+    g = list(
+      st_get_dimension_values(g$stars, "x"),
+      st_get_dimension_values(g$stars, "x"),
+      lapply(lapply(g$graph,`[[`, 1), `+`, -1),
+      lapply(lapply(g$graph,`[[`, 2), `+`, -1)
+    ),
+    y = sim$y
+  ),
+  para = list(
+    working_cv_pars = log(cv_pars),
+    w = 0 * g$stars$w
+  ),
+  map = list(
+    working_cv_pars = as.factor(c(1, 2, NA))
+  ),
+  random = "w",
+  DLL = "npmlangevin_TMB"
+)
+opt_time<- system.time({
+  opt<- nlminb(fitobj$par, fitobj$fn, fitobj$gr)
+})
+sdr<- sdreport(fitobj)
+```
+
+```{r}
+rasters<- tm_shape(g$stars["w"]) + tm_raster(
+    style = "cont",
+    midpoint = 0,
+    interpolate = FALSE,
+    palette = "viridis"
+    # palette = "PRGn"
+)
+rasters + tm_facets(nrow = 1, ncol = 3, free.scales = TRUE) + tm_layout(legend.outside = TRUE)
+```
