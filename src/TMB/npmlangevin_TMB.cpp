@@ -5,6 +5,7 @@ using namespace density;
 #include "include/covariance.hpp"
 #include "include/conditional_normal.hpp"
 #include "include/graph.hpp"
+#include "include/pred_graph.hpp"
 #include "include/nngp.hpp"
 
 

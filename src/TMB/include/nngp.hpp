@@ -17,6 +17,7 @@ class nngp {
 
     Type loglikelihood();
     array<Type> simulate();
+    Type predict(Type pw, int var, const vector<Type> coords, const matrix<int> parents, Type& ll);
 };
 
 template<class Type>
@@ -35,75 +36,12 @@ matrix<Type> nngp<Type>::covmat(int idx) {
   matrix<Type> ss(vertices.rows(), vertices.rows());
   for(int i = 0; i < ss.rows(); i++) {
     for(int j = 0; j < ss.cols(); j++) {
-      // () (x, y), (x, y)
-      // (x, y), (x, y) [g_g]
-      //
-      // .gradient (x, y), (x, y)
-      // (0) = (dx, y), (x, y) [dx_g]
-      // (1) = (x, dy), (x, y) [dy_g]
-      // (2) = (x, y), (dx, y) [g_dx]
-      // (3) = (x, y), (x, dy) [g_dy]
-      //
-      // .hessian (x, y), (x, y)
-      // (0, 2) = (dx, y), (dx, y) [dx_dx]
-      // (0, 3) = (dx, y), (x, dy) [dx_dy]
-      // (1, 2) = (x, dy), (dx, y) [dy_dx]
-      // (1, 3) = (x, dy), (x, dy) [dy_dy]
-      if( vertices(i, 2) == 0 & vertices(j, 2) == 0 ) {
-        // g_g
-        ss(i, j) = cv(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        );
-      } else if( vertices(i, 2) == 0 & vertices(j, 2) == 1 ) {
-        // g_dx
-        ss(i, j) = cv.gradient(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(2);
-      } else if( vertices(i, 2) == 0 & vertices(j, 2) == 2 ) {
-        // g_dy
-        ss(i, j) = cv.gradient(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(3);
-      } else if( vertices(i, 2) == 1 & vertices(j, 2) == 0 ) {
-        // dx_g
-        ss(i, j) = cv.gradient(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(0);
-      } else if( vertices(i, 2) == 1 & vertices(j, 2) == 1 ) {
-        // dx_dx
-        ss(i, j) = cv.hessian(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(0, 2);
-      } else if( vertices(i, 2) == 1 & vertices(j, 2) == 2 ) {
-        // dx_dy
-        ss(i, j) = cv.hessian(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(0, 3);
-      } else if( vertices(i, 2) == 2 & vertices(j, 2) == 0 ) {
-        // dy_g
-        ss(i, j) = cv.gradient(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(1);
-      } else if( vertices(i, 2) == 2 & vertices(j, 2) == 1 ) {
-        // dy_dx
-        ss(i, j) = cv.hessian(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(1, 2);
-      } else if( vertices(i, 2) == 2 & vertices(j, 2) == 2 ) {
-        //dy_dy
-        ss(i, j) = cv.hessian(
-          g.coordinates(vector<int>(vertices.row(i))),
-          g.coordinates(vector<int>(vertices.row(j)))
-        )(1, 3);
-      }
+      ss(i, j) = cv(
+        g.coordinates(vector<int>(vertices.row(i))),
+        g.coordinates(vector<int>(vertices.row(j))),
+        vertices(i, 2),
+        vertices(j, 2)
+      );
     }
   }
   return ss;
@@ -135,4 +73,49 @@ array<Type> nngp<Type>::simulate() {
     }
   }
   return w;
+}
+
+template<class Type>
+Type nngp<Type>::predict(
+      Type pw,
+      int var,
+      const vector<Type> coords,
+      const matrix<int> parents,
+      Type& ll
+    ) {
+  vector<Type> full_w(1 + parents.rows());
+  full_w(0) = pw;
+  for(int i = 0; i < parents.rows(); i++) {
+    full_w(i + 1) = w(parents(i, 0), parents(i, 1), parents(i, 2));
+  }
+  vector<Type> mu = 0.0 * full_w;
+  matrix<Type> Sigma(full_w.size(), full_w.size());
+  for( int i = 0; i < Sigma.rows(); i++ ) {
+    for( int j = 0; j < Sigma.cols(); j++ ) {
+      vector<Type> c1(2);
+      vector<Type> c2(2);
+      int v1;
+      int v2;
+      if( i == 0 ) {
+        c1 = coords;
+        v1 = var;
+      } else {
+        c1 = g.coordinates(vector<int>(parents.row(i - 1)));
+        v1 = parents(i - 1, 2);
+      }
+      if( j == 0 ) {
+        c2 = coords;
+        v2 = var;
+      } else {
+        c2 = g.coordinates(vector<int>(parents.row(j - 1)));
+        v2 = parents(j - 1, 2);
+      }
+
+      Sigma(i, j) = cv(c1, c2, v1, v2);
+    }
+  }
+  conditional_normal<Type> cmvn(Sigma, parents.rows());
+  ll += cmvn.loglikelihood(full_w, mu);
+
+  return pw;
 }

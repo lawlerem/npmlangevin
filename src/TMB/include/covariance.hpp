@@ -18,6 +18,8 @@ class covariance {
     template<typename T> T operator() (const vector<T>& x1, const vector<T>& x2);
     template <typename T> vector<T> gradient(const vector<T>& x1, const vector<T>& x2);
     template<typename T> matrix<T> hessian(const vector<T>& x1, const vector<T>& x2);
+
+    template<typename T> T operator() (const vector<T>& x1, const vector<T>& x2, int v1, int v2);
 };
 
 template<class Type>
@@ -75,4 +77,53 @@ matrix<T> covariance<Type>::hessian(const vector<T>& x1, const vector<T>& x2) {
   x1x2 << x1, x2;
 
   return autodiff::hessian(*this, x1x2);
+}
+
+template<class Type>
+template<typename T>
+T covariance<Type>::operator() (const vector<T>& x1, const vector<T>& x2, int v1, int v2) {
+  T ans;
+  // operator() (x, y), (x, y)
+  // (x, y), (x, y) [g_g]
+  //
+  // .gradient (x, y), (x, y)
+  // (0) = (dx, y), (x, y) [dx_g]
+  // (1) = (x, dy), (x, y) [dy_g]
+  // (2) = (x, y), (dx, y) [g_dx]
+  // (3) = (x, y), (x, dy) [g_dy]
+  //
+  // .hessian (x, y), (x, y)
+  // (0, 2) = (dx, y), (dx, y) [dx_dx]
+  // (0, 3) = (dx, y), (x, dy) [dx_dy]
+  // (1, 2) = (x, dy), (dx, y) [dy_dx]
+  // (1, 3) = (x, dy), (x, dy) [dy_dy]
+  if( v1 == 0 & v2 == 0 ) {
+    // g_g
+    ans = operator()(x1, x2);
+  } else if( v1 == 0 & v2 == 1 ) {
+    // g_dx
+    ans = gradient(x1, x2)(2);
+  } else if( v1 == 0 & v2 == 2 ) {
+    // g_dy
+    ans = gradient(x1, x2)(3);
+  } else if( v1 == 1 & v2 == 0 ) {
+    // dx_g
+    ans = gradient(x1, x2)(0);
+  } else if( v1 == 1 & v2 == 1 ) {
+    // dx_dx
+    ans = hessian(x1, x2)(0, 2);
+  } else if( v1 == 1 & v2 == 2 ) {
+    // dx_dy
+    ans = hessian(x1, x2)(0, 3);
+  } else if( v1 == 2 & v2 == 0 ) {
+    // dy_g
+    ans = gradient(x1, x2)(1);
+  } else if( v1 == 2 & v2 == 1 ) {
+    // dy_dx
+    ans = hessian(x1, x2)(1, 2);
+  } else if( v1 == 2 & v2 == 2 ) {
+    //dy_dy
+    ans = hessian(x1, x2)(1, 3);
+  }
+  return ans;
 }

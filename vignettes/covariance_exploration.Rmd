@@ -16,9 +16,6 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(npmlangevin)
-library(TMB)
-library(stars)
-library(tmap)
 ```
 
 ```{r}
