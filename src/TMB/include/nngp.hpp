@@ -17,7 +17,7 @@ class nngp {
 
     Type loglikelihood();
     array<Type> simulate();
-    Type predict(Type pw, int var, const vector<Type> coords, const matrix<int> parents, Type& ll);
+    Type predict(Type pw, int var, const vector<Type> coords, const matrix<int> parents, Type& ll, bool return_mean = true);
 };
 
 template<class Type>
@@ -81,7 +81,8 @@ Type nngp<Type>::predict(
       int var,
       const vector<Type> coords,
       const matrix<int> parents,
-      Type& ll
+      Type& ll,
+      bool return_mean
     ) {
   vector<Type> full_w(1 + parents.rows());
   full_w(0) = pw;
@@ -116,6 +117,10 @@ Type nngp<Type>::predict(
   }
   conditional_normal<Type> cmvn(Sigma, parents.rows());
   ll += cmvn.loglikelihood(full_w, mu);
+
+  if( return_mean ) {
+    return cmvn.conditional_mean(full_w, mu)(0);
+  } else {}
 
   return pw;
 }
