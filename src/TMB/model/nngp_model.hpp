@@ -8,6 +8,15 @@ Type nngp_model(objective_function<Type>* obj) {
   DATA_ARRAY(y);
   DATA_STRUCT(pwg, pred_graph);
 
+  PARAMETER_VECTOR(boundary_x);
+  PARAMETER_VECTOR(boundary_y);
+  PARAMETER(working_boundary_sharpness);
+
+  Type boundary_sharpness = exp(working_boundary_sharpness);
+  ADREPORT(boundary_sharpness);
+
+  boundary_mean<Type> boundary {boundary_x, boundary_y, boundary_sharpness};
+
   PARAMETER_VECTOR(working_cv_pars);
   PARAMETER_ARRAY(w);
   PARAMETER_VECTOR(pw);
@@ -16,7 +25,7 @@ Type nngp_model(objective_function<Type>* obj) {
   ADREPORT(cv_pars);
 
   covariance<Type> cv {cv_pars, cv_code};
-  nngp<Type> field(g, w, cv);
+  nngp<Type> field(g, w, boundary, cv);
 
   Type field_ll = field.loglikelihood();
   SIMULATE{

@@ -3,16 +3,19 @@ class nngp {
   private:
     nngp_graph<Type> g;
     array<Type> w;
+    boundary_mean<Type> boundary;
     covariance<Type> cv;
 
     vector<Type> w_node(int idx);
+    vector<Type> meanvec(int idx);
     matrix<Type> covmat(int idx);
   public:
     nngp(
       const nngp_graph<Type>& g,
       const array<Type>& w,
+      const boundary_mean<Type>& boundary,
       const covariance<Type>& cv
-    ) : g(g), w(w), cv(cv) {};
+    ) : g(g), w(w), boundary(boundary), cv(cv) {};
     nngp() = default;
 
     Type loglikelihood();
@@ -48,11 +51,24 @@ matrix<Type> nngp<Type>::covmat(int idx) {
 }
 
 template<class Type>
+vector<Type> nngp<Type>::meanvec(int idx) {
+  matrix<int> vertices = g(idx);
+  vector<Type> mm(vertices.rows());
+  for(int i = 0; i < mm.size(); i++) {
+    mm(i) = boundary(
+      g.coordinates(vector<int>(vertices.row(i))),
+      vertices(i, 2)
+    );
+  }
+  return mm;
+}
+
+template<class Type>
 Type nngp<Type>::loglikelihood() {
   Type ll = 0.0;
   for(int i = 0; i < g.size(); i++) {
     vector<Type> this_w = w_node(i);
-    vector<Type> mu = 0.0 * this_w;
+    vector<Type> mu = meanvec(i);
     matrix<Type> Sigma = covmat(i);
     conditional_normal<Type> cmvn(Sigma, g.from(i).rows());
     ll += cmvn.loglikelihood(this_w, mu);
@@ -64,7 +80,7 @@ template<class Type>
 array<Type> nngp<Type>::simulate() {
   for(int i = 0; i < g.size(); i++) {
     vector<Type> this_w = w_node(i);
-    vector<Type> mu = 0.0 * this_w;
+    vector<Type> mu = meanvec(i);
     matrix<Type> Sigma = covmat(i);
     conditional_normal<Type> cmvn(Sigma, g.from(i).rows());
     this_w = cmvn.simulate(this_w, mu);
@@ -89,7 +105,18 @@ Type nngp<Type>::predict(
   for(int i = 0; i < parents.rows(); i++) {
     full_w(i + 1) = w(parents(i, 0), parents(i, 1), parents(i, 2));
   }
-  vector<Type> mu = 0.0 * full_w;
+  vector<Type> mu(full_w.size());
+  for(int i = 0; i < mu.size(); i++) {
+    if( i == 0 ) {
+      mu(i) = boundary(coords, var);
+    } else {
+      mu(i) = boundary(
+        g.coordinates(vector<int>(parents.row(i - 1))),
+        parents(i - 1, 2)
+      );
+    }
+  }
+
   matrix<Type> Sigma(full_w.size(), full_w.size());
   for( int i = 0; i < Sigma.rows(); i++ ) {
     for( int j = 0; j < Sigma.cols(); j++ ) {

@@ -2,6 +2,7 @@
 #include <TMB.hpp>
 using namespace density;
 
+#include "include/boundary_mean.hpp"
 #include "include/covariance.hpp"
 #include "include/conditional_normal.hpp"
 #include "include/graph.hpp"

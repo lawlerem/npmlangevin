@@ -23,6 +23,7 @@ xlim<- c(-2, 2)
 ylim<- c(-2, 2)
 cv_code<- 2
 cv_pars<- c(1, 0.15, 6.5)
+boundary_sharpness<- 3
 
 pred_locs<- st_as_sf(
   expand.grid(
@@ -53,9 +54,9 @@ pwg<- make_pred_graph(
 )
 
 
-# ```
+```
 
-# ```{r}
+```{r}
 obj<- MakeADFun(
   data = list(
     model = "nngp_model",
@@ -74,9 +75,17 @@ obj<- MakeADFun(
     )
   ),
   para = list(
+    boundary_x = 0.9 * xlim,
+    boundary_y = 0.9 * ylim,
+    working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
     w = g$stars$w,
     pw = numeric(0)
+  ),
+  map = list(
+    boundary_x = as.factor(c(NA, NA)),
+    boundary_y = as.factor(c(NA, NA)),
+    working_boundary_sharpness = as.factor(NA)
   ),
   random = "w",
   DLL = "npmlangevin_TMB"
@@ -102,11 +111,17 @@ fitobj<- MakeADFun(
     )
   ),
   para = list(
+    boundary_x = 0.9 * xlim,
+    boundary_y = 0.9 * ylim,
+    working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
     w = 0 * g$stars$w,
     pw = numeric(0)
   ),
   map = list(
+    boundary_x = as.factor(c(NA, NA)),
+    boundary_y = as.factor(c(NA, NA)),
+    working_boundary_sharpness = as.factor(NA),
     working_cv_pars = as.factor(c(1, 2, NA))
   ),
   random = "w",
@@ -131,11 +146,17 @@ predobj<- MakeADFun(
     pwg = pred_graph_to_cpp(pwg)
   ),
   para = list(
+    boundary_x = 0.9 * xlim,
+    boundary_y = 0.9 * ylim,
+    working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
     w = as.list(sdr, "Est")$w,
     pw = numeric(length(pwg$v))
   ),
   map = list(
+    boundary_x = as.factor(c(NA, NA)),
+    boundary_y = as.factor(c(NA, NA)),
+    working_boundary_sharpness = as.factor(NA),
     working_cv_pars = as.factor(c(1, 2, NA))
   ),
   random = c("w", "pw"),
