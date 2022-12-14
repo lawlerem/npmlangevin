@@ -30,6 +30,10 @@ class nngp_graph {
 
     int size() { return to_list.size(); }
 
+    // Get x & y coordinates
+    vector<Type> get_x_coordinates() { return x_coordinates; };
+    vector<Type> get_y_coordinates() { return y_coordinates; };
+
     // Get coordinates for specific vertex
     vector<Type> coordinates(const vector<int>& idx) {
       vector<Type> cc(2);

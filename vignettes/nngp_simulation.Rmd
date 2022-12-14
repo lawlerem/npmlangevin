@@ -63,7 +63,7 @@ obj<- MakeADFun(
     cv_code = cv_code,
     g = list(
       st_get_dimension_values(g$stars, "x"),
-      st_get_dimension_values(g$stars, "x"),
+      st_get_dimension_values(g$stars, "y"),
       lapply(lapply(g$graph,`[[`, 1), `+`, - 1),
       lapply(lapply(g$graph,`[[`, 2), `+`, - 1)
     ),

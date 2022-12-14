@@ -43,8 +43,8 @@ x<- as.matrix(st_coordinates(dims))
 ```
 
 ```{r}
-cv_code<- 2
-cv_pars<- c(1, 0.2, 8.5)
+cv_code<- 1
+cv_pars<- c(2, 0.5, 8.5)
 ```
 
 ```{r}

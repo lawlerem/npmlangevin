@@ -2,7 +2,6 @@ template<class Type>
 class loc_track {
   private:
     matrix<Type> coords;
-    matrix<Type> field_values;
     vector<matrix<int> > field_neighbours;
     vector<Type> time;
     Type gamma;
@@ -14,11 +13,16 @@ class loc_track {
     ) : coords(coords), time(time), gamma(gamma) {};
     loc_track(
       const matrix<Type>& coords,
-      const matrix<Type>& field_values,
       const vector<matrix<int> >& field_neighbours,
       const vector<Type>& time,
       Type gamma
-    ) : coords(coords), field_values(field_values), field_neighbours(field_neighbours), time(time), gamma(gamma) {};
+    ) : coords(coords), field_neighbours(field_neighbours), time(time), gamma(gamma) {};
+    loc_track(
+      const matrix<Type>& coords,
+      const vmint<Type>& field_neighbours,
+      const vector<Type>& time,
+      Type gamma
+    ) : coords(coords), field_neighbours(field_neighbours.x), time(time), gamma(gamma) {};
     loc_track() = default;
 
     // Return location i
@@ -26,13 +30,13 @@ class loc_track {
       return vector<Type>(coords.row(i));
     };
 
-    // If no field, just simulate a random walk
+    // If no field, then use random walk
     Type loglikelihood();
-    Type loglikelihood(const nngp<Type>& field);
+    matrix<Type> simulate();
 
     // If field, then use Langevin diffusion
-    matrix<Type> simulate();
-    matrix<Type> simulate(const nngp<Type>& field);
+    Type loglikelihood(nngp<Type>& field);
+    matrix<Type> simulate(nngp<Type>& field);
 };
 
 template<class Type>
@@ -65,16 +69,31 @@ matrix<Type> loc_track<Type>::simulate() {
 }
 
 template<class Type>
-Type loc_track<Type>::loglikelihood(const nngp<Type>& field) {
+Type loc_track<Type>::loglikelihood(nngp<Type>& field) {
   Type ans = 0.0;
+  Type foo = 0.0;
   for(int t = 1; t < coords.rows(); t++) {
+    matrix<int> neighbours = field.find_nearest_four(coords.row(t - 1));
     for(int v = 0; v < coords.cols(); v++) {
+      matrix<int> this_neighbours(2 * neighbours.rows(), 3);
+      for(int i = 0; i < neighbours.rows(); i++) {
+        // dxdx neighbours
+        this_neighbours(i, 0) = neighbours(i, 0);
+        this_neighbours(i, 1) = neighbours(i, 1);
+        this_neighbours(i, 2) = 2;
+
+        // dydy neighbours
+        this_neighbours(i + neighbours.rows(), 0) = neighbours(i, 0);
+        this_neighbours(i + neighbours.rows(), 1) = neighbours(i, 1);
+        this_neighbours(i + neighbours.rows(), 2) = v;
+      }
       Type grad = field.predict(
-        field_values(t - 1, v),
+        foo,
         v + 1, // 0 = gg, 1 = dxdx, 2 = dydy
         vector<Type>(coords.row(t - 1)),
-        field_neighbours(t - 1),
-        ans
+        this_neighbours,
+        ans,
+        true // Only return mean prediction
       );
       ans += dnorm(
         coords(t, v),
@@ -88,16 +107,30 @@ Type loc_track<Type>::loglikelihood(const nngp<Type>& field) {
 }
 
 template<class Type>
-matrix<Type> loc_track<Type>::simulate(const nngp<Type>& field) {
+matrix<Type> loc_track<Type>::simulate(nngp<Type>& field) {
   Type foo = 0.0;
+  Type bar = 0.0;
   for(int t = 1; t < coords.rows(); t++) {
+    matrix<int> neighbours = field.find_nearest_four(coords.row(t - 1));
     for(int v = 0; v < coords.cols(); v++) {
+      matrix<int> this_neighbours(2 * neighbours.rows(), 3);
+      for(int i = 0; i < neighbours.rows(); i++) {
+        // dxdx neighbours
+        this_neighbours(i, 0) = neighbours(i, 0);
+        this_neighbours(i, 1) = neighbours(i, 1);
+        this_neighbours(i, 2) = 2;
+
+        // dydy neighbours
+        this_neighbours(i + neighbours.rows(), 0) = neighbours(i, 0);
+        this_neighbours(i + neighbours.rows(), 1) = neighbours(i, 1);
+        this_neighbours(i + neighbours.rows(), 2) = v;
+      }
       Type grad = field.predict(
-        field_values(t - 1, v),
+        foo,
         v + 1, // 0 = gg, 1 = dxdx, 2 = dydy
         vector<Type>(coords.row(t - 1)),
-        field_neighbours(t - 1),
-        foo,
+        this_neighbours,
+        bar,
         true // Only return mean prediction
       );
       coords(t, v) = rnorm(

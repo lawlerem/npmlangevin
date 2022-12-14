@@ -20,7 +20,9 @@ class nngp {
 
     Type loglikelihood();
     array<Type> simulate();
-    Type predict(Type pw, int var, const vector<Type> coords, const matrix<int> parents, Type& ll, bool return_mean = true);
+    Type predict(Type pw, int var, const vector<Type> coords, const matrix<int> parents, Type& ll, bool return_mean = false);
+    Type simulate_predict(int var, const vector<Type> coords, const matrix<int> parents, bool return_mean = true);
+    matrix<int> find_nearest_four(vector<Type> coord);
 };
 
 template<class Type>
@@ -150,4 +152,106 @@ Type nngp<Type>::predict(
   } else {}
 
   return pw;
+}
+
+template<class Type>
+Type nngp<Type>::simulate_predict(
+    int var,
+    const vector<Type> coords,
+    const matrix<int> parents,
+    bool return_mean) {
+  vector<Type> full_w(1 + parents.rows());
+  full_w(0) = 0.0;
+  for(int i = 0; i < parents.rows(); i++) {
+    full_w(i + 1) = w(parents(i, 0), parents(i, 1), parents(i, 2));
+  }
+  vector<Type> mu(full_w.size());
+  for(int i = 0; i < mu.size(); i++) {
+    if( i == 0 ) {
+      mu(i) = boundary(coords, var);
+    } else {
+      mu(i) = boundary(
+        g.coordinates(vector<int>(parents.row(i - 1))),
+        parents(i - 1, 2)
+      );
+    }
+  }
+
+  matrix<Type> Sigma(full_w.size(), full_w.size());
+  for( int i = 0; i < Sigma.rows(); i++ ) {
+    for( int j = 0; j < Sigma.cols(); j++ ) {
+      vector<Type> c1(2);
+      vector<Type> c2(2);
+      int v1;
+      int v2;
+      if( i == 0 ) {
+        c1 = coords;
+        v1 = var;
+      } else {
+        c1 = g.coordinates(vector<int>(parents.row(i - 1)));
+        v1 = parents(i - 1, 2);
+      }
+      if( j == 0 ) {
+        c2 = coords;
+        v2 = var;
+      } else {
+        c2 = g.coordinates(vector<int>(parents.row(j - 1)));
+        v2 = parents(j - 1, 2);
+      }
+
+      Sigma(i, j) = cv(c1, c2, v1, v2);
+    }
+  }
+  conditional_normal<Type> cmvn(Sigma, parents.rows());
+  Type sim_w = cmvn.simulate(full_w, mu)(0);
+
+  if( return_mean ) {
+    return cmvn.conditional_mean(full_w, mu)(0);
+  } else {}
+
+  return sim_w;
+}
+
+template<class Type>
+matrix<int> nngp<Type>::find_nearest_four(vector<Type> coord) {
+  // Get nearest x coordinates
+  Eigen::Matrix<Type, Dynamic, 1> xcoord_d = abs(g.get_x_coordinates() - coord(0));
+  Eigen::VectorXi xind = Eigen::VectorXi::LinSpaced(
+    g.get_x_coordinates().size(),
+    0,
+    g.get_x_coordinates().size() - 1
+  );
+  std::partial_sort(
+    xind.data(),
+    xind.data() + 4,
+    xind.data() + xind.size(),
+    refSorter<Type>(xcoord_d)
+  );
+
+  // Get nearest y coordinates
+  Eigen::Matrix<Type, Dynamic, 1> ycoord_d = abs(g.get_y_coordinates() - coord(1));
+  Eigen::VectorXi yind = Eigen::VectorXi::LinSpaced(
+    g.get_y_coordinates().size(),
+    0,
+    g.get_y_coordinates().size() - 1
+  );
+  std::partial_sort(
+    yind.data(),
+    yind.data() + 4,
+    yind.data() + yind.size(),
+    refSorter<Type>(ycoord_d)
+  );
+
+  matrix<int> nn(4, 2);
+  nn(0, 0) = xind(0);
+  nn(1, 0) = xind(0);
+  nn(2, 0) = xind(1);
+  nn(3, 0) = xind(1);
+
+  nn(0, 1) = yind(0);
+  nn(1, 1) = yind(1);
+  nn(2, 1) = yind(0);
+  nn(3, 1) = yind(1);
+
+  return nn;
 }

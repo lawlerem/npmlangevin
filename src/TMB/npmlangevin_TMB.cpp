@@ -2,6 +2,7 @@
 #include <TMB.hpp>
 using namespace density;
 
+#include "include/utilities.hpp"
 #include "include/boundary_mean.hpp"
 #include "include/covariance.hpp"
 #include "include/conditional_normal.hpp"
@@ -15,6 +16,7 @@ using namespace density;
 #include "model/covariance_1d_deriv.hpp"
 #include "model/nngp_model.hpp"
 #include "model/random_walk.hpp"
+#include "model/langevin_diffusion.hpp"
 
 #include "other/covariance_exploration.hpp"
 
@@ -30,6 +32,8 @@ Type objective_function<Type>::operator() () {
     return nngp_model(this);
   } else if( model == "random_walk" ) {
     return random_walk(this);
+  } else if( model == "langevin_diffusion" ) {
+    return langevin_diffusion(this);
   } else {
     error("Unknown model.");
   }
