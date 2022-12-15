@@ -13,7 +13,7 @@ Type random_walk(objective_function<Type>* obj) {
   loc_track<Type> true_track {true_loc, true_time, gamma};
 
 
-  DATA_STRUCT(loc_obs, loc_observations);
+  DATA_STRUCT(pings, loc_observations);
 
   PARAMETER_VECTOR(working_obs_cov_pars);
   vector<Type> obs_cov_pars = exp(working_obs_cov_pars);
@@ -25,7 +25,7 @@ Type random_walk(objective_function<Type>* obj) {
   ADREPORT(Sigma);
 
   Type proc_ll = true_track.loglikelihood();
-  Type obs_ll = loc_obs.loglikelihood(Sigma, true_track);
+  Type obs_ll = pings.loglikelihood(Sigma, true_track);
   Type ll = proc_ll + obs_ll;
 
   REPORT(ll);
@@ -34,7 +34,7 @@ Type random_walk(objective_function<Type>* obj) {
 
   SIMULATE{
     true_loc = true_track.simulate();
-    matrix<Type> sim_obs = loc_obs.simulate(Sigma, true_track);
+    matrix<Type> sim_obs = pings.simulate(Sigma, true_track);
     REPORT(true_loc);
     REPORT(sim_obs);
   }

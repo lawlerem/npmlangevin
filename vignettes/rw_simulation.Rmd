@@ -43,10 +43,10 @@ loc_class_probs<- c(
 ```{r}
 nt<- 100
 nobs<- 40
-gamma<- 5
+gamma<- 1
 
 obs_tau<- 1 * c(0.1, 0.1)
-obs_cor<- 0.3
+obs_cor<- 0.0
 
 
 true_time<- sort(runif(nt))
@@ -68,7 +68,7 @@ obj<- MakeADFun(
   data = list(
     model = "random_walk",
     true_time = true_time,
-    loc_obs = list(
+    pings = list(
       coords = matrix(0, nrow = nobs, ncol = 2),
       loc_class = as.numeric(loc_class) - 1,
       track_idx = track_idx - 1,
@@ -94,7 +94,7 @@ fitobj<- MakeADFun(
   data = list(
     model = "random_walk",
     true_time = true_time,
-    loc_obs = list(
+    pings = list(
       coords = sim$sim_obs,
       loc_class = as.numeric(loc_class) - 1,
       track_idx = track_idx - 1,
@@ -102,9 +102,9 @@ fitobj<- MakeADFun(
     )
   ),
   para = list(
-    true_loc = true_loc,
-    log_gamma = log(gamma),
-    working_obs_cov_pars = c(
+    true_loc = 0 * true_loc,
+    log_gamma = 0,
+    working_obs_cov_pars = 0 * c(
       log(obs_tau[[1]]),
       qlogis(0.5 + 0.5 * obs_cor) ,
       log(obs_tau[[2]])

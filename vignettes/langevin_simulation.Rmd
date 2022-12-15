@@ -16,6 +16,7 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(npmlangevin)
+set.seed(4326)
 ```
 
 ```{r}
@@ -35,6 +36,8 @@ gamma<- 0.08
 
 ping_tau<- 0.1 * c(1, 1)
 ping_cor<- 0.3
+
+nsim<- 5
 ```
 
 ```{r}
@@ -331,25 +334,8 @@ do_a_simulation<- function(seed) {
 ```
 
 ```{r sim-all, message=FALSE, warning=FALSE}
-xlim<- c(-2, 2)
-ylim<- c(-2, 2)
-boundary_sharpness<- 2.5
-boundary_limit<- 0.8
-
-cv_code<- 1
-cv_pars<- c(2, 0.5, 6.5)
-pred_loc_delta<- 0.25
-pred_loc_v<- 1:3
-
-nt<- 500
-nping<- 40
-gamma<- 0.08
-
-ping_tau<- 0.1 * c(1, 1)
-ping_cor<- 0.3
-
-
-sims<- lapply(seq(50), do_a_simulation)
+seeds<- sample(seq(10000), nsim)
+sims<- lapply(seeds, do_a_simulation)
 ```
 
 ```{r}
@@ -399,9 +385,9 @@ plot_sim<- function(x, with_track = TRUE) {
 
 ```{r plot-all, fig.height = 10, fig.width = 8, out.width = '100%', out.height = '100%', fig.keep = 'all'}
 for( i in seq_along(sims) ) {
-  print(i)
+  print(sims$seed)
   print(plot_sim(sims[[i]], FALSE))
   print(plot_sim(sims[[i]], TRUE))
-  print("")
+  cat("\n")
 }
 ```
