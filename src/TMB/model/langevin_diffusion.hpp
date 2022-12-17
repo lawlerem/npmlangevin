@@ -59,13 +59,13 @@ Type langevin_diffusion(objective_function<Type>* obj) {
 
   // True Movement Path
   PARAMETER_MATRIX(true_coord);
-  // DATA_STRUCT(field_neighbours, vmint);
+  DATA_STRUCT(field_neighbours, vmint);
   DATA_VECTOR(true_time);
   PARAMETER(log_gamma);
   Type gamma = exp(log_gamma);
   ADREPORT(gamma);
 
-  loc_track<Type> track {true_coord, true_time, gamma};
+  loc_track<Type> track {true_coord, field_neighbours, true_time, gamma};
   Type track_ll = track.loglikelihood(field);
 
   SIMULATE{
@@ -90,8 +90,12 @@ Type langevin_diffusion(objective_function<Type>* obj) {
     REPORT(sim_pings);
   }
 
-  // return -1.0 * (field_ll + pred_ll + track_ll + pings_ll);
-  return -1.0 * (field_ll + pred_ll + pings_ll);
+  REPORT(field_ll);
+  REPORT(pred_ll);
+  REPORT(track_ll);
+  REPORT(pings_ll);
+
+  return -1.0 * (field_ll + pred_ll + track_ll + pings_ll);
 }
 
 #undef TMB_OBJECTIVE_PTR

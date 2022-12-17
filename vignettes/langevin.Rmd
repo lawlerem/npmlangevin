@@ -1,0 +1,24 @@
+---
+title: "langevin"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{langevin}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(npmlangevin)
+set.seed(4326)
+```
+
+```{r}
+track<- simulate_track()
+```

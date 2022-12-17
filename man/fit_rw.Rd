@@ -14,14 +14,14 @@ fit_rw(locations, delta_t)
 \value{
 A list
 \itemize{
-\item Locations A time-sorted copy of the passed in locations
-\item Estimated An sf data.frame with columns
+\item pings A time-sorted copy of the passed in locations
+\item track An sf data.frame with columns
 \itemize{
 \item x_se, y_se Standard errors for the x and y coordinate, respectively
 \item t Time for the location estimate
 \item geom Point geometries giving the estimated locations
 }
-\item Parameters parameters estimates
+\item parameters parameter estimates
 }
 }
 \description{

@@ -73,19 +73,19 @@ Type loc_track<Type>::loglikelihood(nngp<Type>& field) {
   Type ans = 0.0;
   Type foo = 0.0;
   for(int t = 1; t < coords.rows(); t++) {
-    matrix<int> neighbours = field.find_nearest_four(coords.row(t - 1));
+    matrix<int> neighbours = field_neighbours(t - 1);
     for(int v = 0; v < coords.cols(); v++) {
       matrix<int> this_neighbours(2 * neighbours.rows(), 3);
       for(int i = 0; i < neighbours.rows(); i++) {
         // dxdx neighbours
         this_neighbours(i, 0) = neighbours(i, 0);
         this_neighbours(i, 1) = neighbours(i, 1);
-        this_neighbours(i, 2) = 2;
+        this_neighbours(i, 2) = 1;
 
         // dydy neighbours
         this_neighbours(i + neighbours.rows(), 0) = neighbours(i, 0);
         this_neighbours(i + neighbours.rows(), 1) = neighbours(i, 1);
-        this_neighbours(i + neighbours.rows(), 2) = v;
+        this_neighbours(i + neighbours.rows(), 2) = 2;
       }
       Type grad = field.predict(
         foo,
@@ -118,12 +118,12 @@ matrix<Type> loc_track<Type>::simulate(nngp<Type>& field) {
         // dxdx neighbours
         this_neighbours(i, 0) = neighbours(i, 0);
         this_neighbours(i, 1) = neighbours(i, 1);
-        this_neighbours(i, 2) = 2;
+        this_neighbours(i, 2) = 1;
 
         // dydy neighbours
         this_neighbours(i + neighbours.rows(), 0) = neighbours(i, 0);
         this_neighbours(i + neighbours.rows(), 1) = neighbours(i, 1);
-        this_neighbours(i + neighbours.rows(), 2) = v;
+        this_neighbours(i + neighbours.rows(), 2) = 2;
       }
       Type grad = field.predict(
         foo,

@@ -27,6 +27,31 @@ make_pred_graph<- function(pred_coordinates, nn_graph) {
   ))
 }
 
+#' Find the four nearest neighbours of the spatial field graph
+#'
+#' @param pred_coordinates An sf object with point geometries
+#' @param nn_graph The output of make_nn_graph
+#'
+#' @return A list of matrices giving the neighbour indices for each prediction location
+#'
+#' @export
+find_nearest_four<- function(pred_coordinates, nn_graph) {
+  pred_coordinates<- sf::st_coordinates(pred_coordinates)
+  nearest_four<- lapply(seq(nrow(pred_coordinates)), function(i) {
+    xcoord_d<- abs(stars::st_get_dimension_values(nn_graph$stars, "x") - pred_coordinates[i, 1])
+    ycoord_d<- abs(stars::st_get_dimension_values(nn_graph$stars, "x") - pred_coordinates[i, 1])
+
+    nn<- as.matrix(
+      expand.grid(
+        order(xcoord_d)[1:2],
+        order(ycoord_d)[1:2]
+      )
+    )
+    return(nn)
+  })
+  return(nearest_four)
+}
+
 #' @export
 pred_graph_to_cpp<- function(x) {
   x$v<- x$v - 1

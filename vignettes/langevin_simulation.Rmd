@@ -1,8 +1,8 @@
 ---
-title: "langevin_simulation"
+title: "somethingnew"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{langevin_simulation}
+  %\VignetteIndexEntry{somethingnew}
   %\VignetteEnging{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -31,13 +31,13 @@ pred_loc_delta<- 0.25
 pred_loc_v<- 1:3
 
 nt<- 500
-nping<- 40
+nping<- 100
 gamma<- 0.08
 
 ping_tau<- 0.1 * c(1, 1)
 ping_cor<- 0.3
 
-nsim<- 5
+nsim<- 1
 ```
 
 ```{r}
@@ -100,6 +100,9 @@ simobj<- MakeADFun(
       lapply(lapply(g$graph, `[[`, 2), `+`, -1)
     ),
     pwg = pred_graph_to_cpp(pwg),
+    field_neighbours = lapply(true_time, function(x) {
+      return(matrix(0, nrow = 1, ncol = 2))
+    }),
     true_time = true_time,
     pings = list(
       coords = matrix(0, nrow = nping, ncol = 2),
@@ -158,7 +161,7 @@ attr(st_dimensions(pred), "raster")$dimensions<- c("x", "y")
 
 ```
 
-```{r plot_sim}
+```{r plot-sim}
 sim_rasters<- tm_shape(g$stars["w"]) +
   tm_raster(
     style = "cont",
@@ -270,6 +273,9 @@ do_a_simulation<- function(seed) {
         lapply(lapply(g$graph, `[[`, 2), `+`, -1)
       ),
       pwg = pred_graph_to_cpp(pwg),
+      field_neighbours = lapply(true_time, function(x) {
+        return(matrix(0, nrow = 1, ncol = 2))
+      }),
       true_time = true_time,
       pings = list(
         coords = matrix(0, nrow = nping, ncol = 2),
