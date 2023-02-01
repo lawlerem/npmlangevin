@@ -21,8 +21,8 @@ library(npmlangevin)
 ```{r}
 xlim<- c(-2, 2)
 ylim<- c(-2, 2)
-cv_code<- 2
-cv_pars<- c(1, 0.15, 6.5)
+cv_code<- 1
+cv_pars<- c(1, 0.25, 6.5)
 boundary_sharpness<- 3
 
 pred_locs<- st_as_sf(
@@ -79,8 +79,7 @@ obj<- MakeADFun(
     boundary_y = 0.9 * ylim,
     working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
-    w = g$stars$w,
-    pw = numeric(0)
+    w = g$stars$w
   ),
   map = list(
     boundary_x = as.factor(c(NA, NA)),
@@ -115,8 +114,7 @@ fitobj<- MakeADFun(
     boundary_y = 0.9 * ylim,
     working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
-    w = 0 * g$stars$w,
-    pw = numeric(0)
+    w = 0 * g$stars$w
   ),
   map = list(
     boundary_x = as.factor(c(NA, NA)),
@@ -150,8 +148,7 @@ predobj<- MakeADFun(
     boundary_y = 0.9 * ylim,
     working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
-    w = as.list(sdr, "Est")$w,
-    pw = numeric(length(pwg$v))
+    w = as.list(sdr, "Est")$w
   ),
   map = list(
     boundary_x = as.factor(c(NA, NA)),
@@ -159,7 +156,7 @@ predobj<- MakeADFun(
     working_boundary_sharpness = as.factor(NA),
     working_cv_pars = as.factor(c(1, 2, NA))
   ),
-  random = c("w", "pw"),
+  random = c("w"),
   DLL = "npmlangevin_TMB"
 )
 sdrpred<- sdreport(predobj, opt$par)
@@ -168,8 +165,8 @@ sdrpred<- sdreport(predobj, opt$par)
 ```{r}
 pred<- st_sf(
   data.frame(
-    w = as.list(sdrpred, "Est")$pw,
-    se = as.list(sdrpred, "Std")$pw,
+    w = as.list(sdrpred, "Est", report = TRUE)$pw,
+    se = as.list(sdrpred, "Std", report = TRUE)$pw,
     pred_locs
   )
 )

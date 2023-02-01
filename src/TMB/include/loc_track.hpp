@@ -6,6 +6,7 @@ class loc_track {
     vector<Type> time;
     Type gamma;
   public:
+    matrix<Type> track_gradient;
     loc_track(
       const matrix<Type>& coords,
       const vector<Type>& time,
@@ -13,16 +14,12 @@ class loc_track {
     ) : coords(coords), time(time), gamma(gamma) {};
     loc_track(
       const matrix<Type>& coords,
-      const vector<matrix<int> >& field_neighbours,
-      const vector<Type>& time,
-      Type gamma
-    ) : coords(coords), field_neighbours(field_neighbours), time(time), gamma(gamma) {};
-    loc_track(
-      const matrix<Type>& coords,
       const vmint<Type>& field_neighbours,
       const vector<Type>& time,
       Type gamma
-    ) : coords(coords), field_neighbours(field_neighbours.x), time(time), gamma(gamma) {};
+    ) : coords(coords), field_neighbours(field_neighbours.x), time(time), gamma(gamma) {
+      track_gradient = 0.0 * coords;
+    };
     loc_track() = default;
 
     // Return location i
@@ -71,35 +68,36 @@ matrix<Type> loc_track<Type>::simulate() {
 template<class Type>
 Type loc_track<Type>::loglikelihood(nngp<Type>& field) {
   Type ans = 0.0;
-  Type foo = 0.0;
-  for(int t = 1; t < coords.rows(); t++) {
-    matrix<int> neighbours = field_neighbours(t - 1);
+  for(int t = 0; t < coords.rows(); t++) {
     for(int v = 0; v < coords.cols(); v++) {
-      matrix<int> this_neighbours(2 * neighbours.rows(), 3);
-      for(int i = 0; i < neighbours.rows(); i++) {
+      if( t > 0 ) {
+        ans += dnorm(
+          coords(t, v),
+          coords(t - 1, v) + 0.5 * (time(t) - time(t - 1)) * track_gradient(t - 1, v),
+          gamma * pow(time(t) - time(t - 1), 0.5),
+          true
+        );
+      } else {}
+    }
+    matrix<int> nn = field_neighbours(t);
+    for(int v = 0; v < coords.cols(); v++) {
+      matrix<int> this_nn(2 * nn.rows(), 3);
+      for(int i = 0; i < nn.rows(); i++) {
         // dxdx neighbours
-        this_neighbours(i, 0) = neighbours(i, 0);
-        this_neighbours(i, 1) = neighbours(i, 1);
-        this_neighbours(i, 2) = 1;
+        this_nn(i, 0) = nn(i, 0);
+        this_nn(i, 1) = nn(i, 1);
+        this_nn(i, 2) = 1;
 
         // dydy neighbours
-        this_neighbours(i + neighbours.rows(), 0) = neighbours(i, 0);
-        this_neighbours(i + neighbours.rows(), 1) = neighbours(i, 1);
-        this_neighbours(i + neighbours.rows(), 2) = 2;
+        this_nn(i + nn.rows(), 0) = nn(i, 0);
+        this_nn(i + nn.rows(), 1) = nn(i, 1);
+        this_nn(i + nn.rows(), 2) = 2;
       }
-      Type grad = field.predict(
-        foo,
+
+      track_gradient(t, v) = field.predict(
         v + 1, // 0 = gg, 1 = dxdx, 2 = dydy
-        vector<Type>(coords.row(t - 1)),
-        this_neighbours,
-        ans,
-        true // Only return mean prediction
-      );
-      ans += dnorm(
-        coords(t, v),
-        coords(t - 1, v) + 0.5 * (time(t) - time(t - 1)) * pow(gamma, 2) * grad,
-        gamma * pow(time(t) - time(t - 1), 0.5),
-        true
+        vector<Type>(coords.row(t)),
+        this_nn
       );
     }
   }
@@ -108,34 +106,33 @@ Type loc_track<Type>::loglikelihood(nngp<Type>& field) {
 
 template<class Type>
 matrix<Type> loc_track<Type>::simulate(nngp<Type>& field) {
-  Type foo = 0.0;
-  Type bar = 0.0;
-  for(int t = 1; t < coords.rows(); t++) {
-    matrix<int> neighbours = field.find_nearest_four(coords.row(t - 1));
+  for(int t = 0; t < coords.rows(); t++) {
     for(int v = 0; v < coords.cols(); v++) {
-      matrix<int> this_neighbours(2 * neighbours.rows(), 3);
-      for(int i = 0; i < neighbours.rows(); i++) {
+      if( t > 0 ) {
+        coords(t, v) = rnorm(
+          coords(t - 1, v) + 0.5 * (time(t) - time(t - 1)) * track_gradient(t - 1, v),
+          gamma * pow(time(t) - time(t - 1), 0.5)
+        );
+      } else {}
+    }
+    matrix<int> nn = field.find_nearest_four(coords.row(t));
+    for(int v = 0; v < coords.cols(); v++) {
+      matrix<int> this_nn(2 * nn.rows(), 3);
+      for(int i = 0; i < nn.rows(); i++) {
         // dxdx neighbours
-        this_neighbours(i, 0) = neighbours(i, 0);
-        this_neighbours(i, 1) = neighbours(i, 1);
-        this_neighbours(i, 2) = 1;
+        this_nn(i, 0) = nn(i, 0);
+        this_nn(i, 1) = nn(i, 1);
+        this_nn(i, 2) = 1;
 
         // dydy neighbours
-        this_neighbours(i + neighbours.rows(), 0) = neighbours(i, 0);
-        this_neighbours(i + neighbours.rows(), 1) = neighbours(i, 1);
-        this_neighbours(i + neighbours.rows(), 2) = 2;
+        this_nn(i + nn.rows(), 0) = nn(i, 0);
+        this_nn(i + nn.rows(), 1) = nn(i, 1);
+        this_nn(i + nn.rows(), 2) = 2;
       }
-      Type grad = field.predict(
-        foo,
+      track_gradient(t, v) = field.predict(
         v + 1, // 0 = gg, 1 = dxdx, 2 = dydy
-        vector<Type>(coords.row(t - 1)),
-        this_neighbours,
-        bar,
-        true // Only return mean prediction
-      );
-      coords(t, v) = rnorm(
-        coords(t - 1, v) + 0.5 * (time(t) - time(t - 1)) * pow(gamma, 2) * grad,
-        gamma * pow(time(t) - time(t - 1), 0.5)
+        vector<Type>(coords.row(t)),
+        this_nn
       );
     }
   }

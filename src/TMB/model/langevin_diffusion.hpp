@@ -22,6 +22,8 @@ Type langevin_diffusion(objective_function<Type>* obj) {
   DATA_STRUCT(g, nngp_graph);
   PARAMETER_ARRAY(w);
 
+  REPORT(w);
+
   // Spatial field for utilization / gradient
   nngp<Type> field(g, w, boundary, cv);
 
@@ -33,25 +35,24 @@ Type langevin_diffusion(objective_function<Type>* obj) {
 
   // Predictions for spatial field
   DATA_STRUCT(pwg, pred_graph);
-  PARAMETER_VECTOR(pw);
-  Type pred_ll = 0.0;
+  vector<Type> pw(pwg.var.size());
+
   for(int i = 0; i < pw.size(); i++) {
-    field.predict(
-      pw(i),
+    pw(i) = field.predict(
       pwg.var(i),
       pwg.coord.row(i),
-      pwg.parents(i),
-      pred_ll
+      pwg.parents(i)
     );
   }
+  REPORT(pw);
+  ADREPORT(pw);
 
   SIMULATE{
     for(int i = 0; i < pw.size(); i++) {
-      pw(i) = field.simulate_predict(
+      pw(i) = field.predict(
         pwg.var(i),
         pwg.coord.row(i),
-        pwg.parents(i),
-        true
+        pwg.parents(i)
       );
     }
     REPORT(pw);
@@ -68,9 +69,15 @@ Type langevin_diffusion(objective_function<Type>* obj) {
   loc_track<Type> track {true_coord, field_neighbours, true_time, gamma};
   Type track_ll = track.loglikelihood(field);
 
+  matrix<Type> track_gradient = track.track_gradient;
+  ADREPORT(track_gradient);
+
   SIMULATE{
+    track.simulate();
     true_coord = track.simulate(field);
     REPORT(true_coord);
+    track_gradient = track.track_gradient;
+    REPORT(track_gradient);
   }
 
   // Observed Locations
@@ -91,11 +98,10 @@ Type langevin_diffusion(objective_function<Type>* obj) {
   }
 
   REPORT(field_ll);
-  REPORT(pred_ll);
   REPORT(track_ll);
   REPORT(pings_ll);
 
-  return -1.0 * (field_ll + pred_ll + track_ll + pings_ll);
+  return -1.0 * (field_ll + track_ll + pings_ll);
 }
 
 #undef TMB_OBJECTIVE_PTR

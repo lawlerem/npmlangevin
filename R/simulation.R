@@ -5,7 +5,7 @@
 #' @param boundary_limit A scaling factor applied to xlim and ylim to determine where the penalty be applied.
 #' @param cv_code 0 = exponential (don't use), 1 = gaussian, 2 = matern, 3 = matern32
 #' @param cv_pars c(marginal std. dev., range, smoothness)
-#' @param pred_loc_delta Raster cell size for interpolated utilization distribution raster
+#' @param pred_loc_delta Raster cell size for interpolated utilization distribution raster. If equal to NA, predictions won't be made.
 #' @param nt How many true movement locations should there be?
 #' @param nping How many location pings should there be?
 #' @param gamma Speed parameter.
@@ -15,9 +15,10 @@
 #' @param seed Optional simulation seed.
 #'
 #' @return A list:
+#'   - nn_graph The output of make_nn_graph
 #'   - field A stars object with the simulated utilization distribution
 #'   - pred_field An upscaled / interpolated copy of field
-#'   - track An sf data.frame with the true location track
+#'   - track An sf data.frame with the true location track and field gradient values
 #'   - pings An sf data.frame with the observation pings
 #'   - tmap A list of tmap objects for the above simulated values
 #'   - data A copy of data passed to TMB
@@ -58,18 +59,34 @@ simulate<- function(
     cv_pars = cv_pars,
     cv_code = cv_code
   )
-  pred_locs<- st_as_sf(
-    expand.grid(
-      x = seq(min(xlim), max(xlim), by = pred_loc_delta),
-      y = seq(min(ylim), max(ylim), by = pred_loc_delta),
-      v = 1:3
-    ),
-    coords = c("x", "y")
-  )
-  pwg<- make_pred_graph(
-    pred_locs,
-    g
-  )
+  if( is.na(pred_loc_delta) ) {
+    pred_locs<- st_as_sf(
+      expand.grid(
+        x = numeric(1),
+        y = numeric(1),
+        v = 1:3
+      ),
+      coords = c("x", "y")
+    )
+    pwg<- list(
+      v = numeric(0),
+      coord = matrix(0, nrow = 0, ncol = 2),
+      parents = list()
+    )
+  } else {
+    pred_locs<- st_as_sf(
+      expand.grid(
+        x = seq(min(xlim), max(xlim), by = pred_loc_delta),
+        y = seq(min(ylim), max(ylim), by = pred_loc_delta),
+        v = 1:3
+      ),
+      coords = c("x", "y")
+    )
+    pwg<- make_pred_graph(
+      pred_locs,
+      g
+    )
+  }
 
 
   true_time<- sort(cumsum(runif(nt, 0, 2)))
@@ -103,7 +120,6 @@ simulate<- function(
     working_boundary_sharpness = log(boundary_sharpness),
     working_cv_pars = log(cv_pars),
     w = g$stars$w,
-    pw = numeric(length(pwg$v)),
     true_coord = matrix(0, nrow = nt, ncol = 2),
     log_gamma = log(gamma),
     working_ping_cov_pars = c(
@@ -116,39 +132,40 @@ simulate<- function(
   simobj<- MakeADFun(
     data = data,
     para = para,
-    map = list(
-      boundary_x = as.factor(c(NA, NA)),
-      boundary_y = as.factor(c(NA, NA)),
-      working_boundary_sharpness = as.factor(NA)
-    ),
-    random = c("w", "pw", "true_coord"),
     DLL = "npmlangevin_TMB"
   )
   sim<- simobj$simulate()
   g$stars$w<- sim$w
-  pred<- st_sf(
-    data.frame(
-      w = sim$pw,
-      pred_locs
+
+  if( !is.na(pred_loc_delta) ) {
+    pred<- st_sf(
+      data.frame(
+        w = sim$pw,
+        pred_locs
+      )
     )
-  )
-  pred<- split(pred, pred$v)
-  pred<- lapply(
-    pred,
-    function(x) {
-      x<- st_as_stars(x["w"])
-      x<- st_sfc2xy(x)
-      return( x )
-    }
-  )
-  pred<- do.call(c, c(pred, list(along = "v")))
-  st_dimensions(pred)$v$values<- c("gg", "dxdx", "dydy")
-  names(st_dimensions(pred))[1:2]<- c("x", "y")
-  attr(st_dimensions(pred), "raster")$dimensions<- c("x", "y")
+    pred<- split(pred, pred$v)
+    pred<- lapply(
+      pred,
+      function(x) {
+        x<- st_as_stars(x["w"])
+        x<- st_sfc2xy(x)
+        return( x )
+      }
+    )
+    pred<- do.call(c, c(pred, list(along = "v")))
+    st_dimensions(pred)$v$values<- c("gg", "dxdx", "dydy")
+    names(st_dimensions(pred))[1:2]<- c("x", "y")
+    attr(st_dimensions(pred), "raster")$dimensions<- c("x", "y")
+  } else {
+    pred<- g$stars
+  }
 
   track<- st_as_sf(
     data.frame(
       x = sim$true_coord,
+      dx = sim$track_gradient[, 1],
+      dy = sim$track_gradient[, 2],
       t = true_time
     ),
     coords = c(1, 2)
@@ -209,8 +226,10 @@ simulate<- function(
 
   return(
     list(
+      nn_graph = g,
       field = g$stars,
       pred_field = pred,
+      pred_locs = pred_locs,
       track = track,
       pings = pings,
       tmap = list(

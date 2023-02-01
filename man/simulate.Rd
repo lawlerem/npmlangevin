@@ -33,7 +33,7 @@ simulate(
 
 \item{cv_pars}{c(marginal std. dev., range, smoothness)}
 
-\item{pred_loc_delta}{Raster cell size for interpolated utilization distribution raster}
+\item{pred_loc_delta}{Raster cell size for interpolated utilization distribution raster. If equal to NA, predictions won't be made.}
 
 \item{nt}{How many true movement locations should there be?}
 
@@ -52,9 +52,10 @@ simulate(
 \value{
 A list:
 \itemize{
+\item nn_graph The output of make_nn_graph
 \item field A stars object with the simulated utilization distribution
 \item pred_field An upscaled / interpolated copy of field
-\item track An sf data.frame with the true location track
+\item track An sf data.frame with the true location track and field gradient values
 \item pings An sf data.frame with the observation pings
 \item tmap A list of tmap objects for the above simulated values
 \item data A copy of data passed to TMB

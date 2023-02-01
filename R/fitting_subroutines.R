@@ -126,8 +126,7 @@ fit_utilization_distribution<- function(
     working_boundary_sharpness = log(2.5),
     working_cv_pars = log(initial_cv_pars),
     w = g$stars$w,
-    pw = numeric(0),
-    true_coord = unname(sf::st_coordinates(track_estimate$track)),
+    true_coord = sf::st_coordinates(track_estimate$track),
     log_gamma = track_estimate$parameters["log_gamma"],
     working_ping_cov_pars = track_estimate$parameters[names(track_estimate$parameters) == "working_obs_cov_pars"]
   )
@@ -156,11 +155,11 @@ fit_utilization_distribution<- function(
     data = data,
     para = para,
     map = map,
-    random = c("w", "pw", "true_coord"),
+    random = c("w", "true_coord"),
     DLL = "npmlangevin_TMB"
   )
   opt<- nlminb(obj$par, obj$fn, obj$gr)
-
+  sdr<- TMB::sdreport(obj, opt$par)
 
 
   ###

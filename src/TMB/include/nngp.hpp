@@ -20,8 +20,7 @@ class nngp {
 
     Type loglikelihood();
     array<Type> simulate();
-    Type predict(Type pw, int var, const vector<Type> coords, const matrix<int> parents, Type& ll, bool return_mean = false);
-    Type simulate_predict(int var, const vector<Type> coords, const matrix<int> parents, bool return_mean = true);
+    Type predict(int var, const vector<Type> coords, const matrix<int> parents);
     matrix<int> find_nearest_four(vector<Type> coord);
 };
 
@@ -48,6 +47,7 @@ matrix<Type> nngp<Type>::covmat(int idx) {
         vertices(j, 2)
       );
     }
+    ss(i, i) *= 1.001; // Add small number to main diagonal for numerical stability
   }
   return ss;
 }
@@ -95,15 +95,11 @@ array<Type> nngp<Type>::simulate() {
 
 template<class Type>
 Type nngp<Type>::predict(
-      Type pw,
       int var,
       const vector<Type> coords,
-      const matrix<int> parents,
-      Type& ll,
-      bool return_mean
+      const matrix<int> parents
     ) {
   vector<Type> full_w(1 + parents.rows());
-  full_w(0) = pw;
   for(int i = 0; i < parents.rows(); i++) {
     full_w(i + 1) = w(parents(i, 0), parents(i, 1), parents(i, 2));
   }
@@ -145,71 +141,9 @@ Type nngp<Type>::predict(
     }
   }
   conditional_normal<Type> cmvn(Sigma, parents.rows());
-  ll += cmvn.loglikelihood(full_w, mu);
+  full_w(0) = cmvn.conditional_mean(full_w, mu)(0);
 
-  if( return_mean ) {
-    return cmvn.conditional_mean(full_w, mu)(0);
-  } else {}
-
-  return pw;
-}
-
-template<class Type>
-Type nngp<Type>::simulate_predict(
-    int var,
-    const vector<Type> coords,
-    const matrix<int> parents,
-    bool return_mean) {
-  vector<Type> full_w(1 + parents.rows());
-  full_w(0) = 0.0;
-  for(int i = 0; i < parents.rows(); i++) {
-    full_w(i + 1) = w(parents(i, 0), parents(i, 1), parents(i, 2));
-  }
-  vector<Type> mu(full_w.size());
-  for(int i = 0; i < mu.size(); i++) {
-    if( i == 0 ) {
-      mu(i) = boundary(coords, var);
-    } else {
-      mu(i) = boundary(
-        g.coordinates(vector<int>(parents.row(i - 1))),
-        parents(i - 1, 2)
-      );
-    }
-  }
-
-  matrix<Type> Sigma(full_w.size(), full_w.size());
-  for( int i = 0; i < Sigma.rows(); i++ ) {
-    for( int j = 0; j < Sigma.cols(); j++ ) {
-      vector<Type> c1(2);
-      vector<Type> c2(2);
-      int v1;
-      int v2;
-      if( i == 0 ) {
-        c1 = coords;
-        v1 = var;
-      } else {
-        c1 = g.coordinates(vector<int>(parents.row(i - 1)));
-        v1 = parents(i - 1, 2);
-      }
-      if( j == 0 ) {
-        c2 = coords;
-        v2 = var;
-      } else {
-        c2 = g.coordinates(vector<int>(parents.row(j - 1)));
-        v2 = parents(j - 1, 2);
-      }
-
-      Sigma(i, j) = cv(c1, c2, v1, v2);
-    }
-  }
-  conditional_normal<Type> cmvn(Sigma, parents.rows());
-  Type sim_w = cmvn.simulate(full_w, mu)(0);
-
-  if( return_mean ) {
-    return cmvn.conditional_mean(full_w, mu)(0);
-  } else {}
-
-  return sim_w;
+  return full_w(0);
 }
 
 template<class Type>
