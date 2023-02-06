@@ -82,7 +82,7 @@ matrix<T> covariance<Type>::hessian(const vector<T>& x1, const vector<T>& x2) {
 template<class Type>
 template<typename T>
 T covariance<Type>::operator() (const vector<T>& x1, const vector<T>& x2, int v1, int v2) {
-  T ans;
+  T ans = 0.0;
   // operator() (x, y), (x, y)
   // (x, y), (x, y) [g_g]
   //
@@ -124,6 +124,6 @@ T covariance<Type>::operator() (const vector<T>& x1, const vector<T>& x2, int v1
   } else if( v1 == 2 & v2 == 2 ) {
     //dy_dy
     ans = hessian(x1, x2)(1, 3);
-  }
+  } else {}
   return ans;
 }
