@@ -83,7 +83,7 @@ fit_utilization_distribution<- function(
     track_estimate,
     cv_code = 1,
     initial_cv_pars = c(1, 1, 1.5),
-    bbox = sf::st_bbox(track_estimate$pings)
+    bbox = 1.1 * sf::st_bbox(track_estimate$pings)
   ) {
   # Create nearest neighbour graph
   g<- make_nn_graph(
@@ -123,7 +123,7 @@ fit_utilization_distribution<- function(
   para<- list(
     boundary_x = bbox[c("xmin", "xmax")],
     boundary_y = bbox[c("ymin", "ymax")],
-    working_boundary_sharpness = log(2.5),
+    working_boundary_sharpness = log(0),
     working_cv_pars = log(initial_cv_pars),
     w = g$stars$w,
     true_coord = sf::st_coordinates(track_estimate$track),
