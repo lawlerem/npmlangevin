@@ -17,6 +17,7 @@ using namespace density;
 #include "model/nngp_model.hpp"
 #include "model/random_walk.hpp"
 #include "model/langevin_diffusion.hpp"
+#include "model/starve_npmlangevin.hpp"
 
 #include "other/covariance_exploration.hpp"
 
@@ -34,6 +35,8 @@ Type objective_function<Type>::operator() () {
     return random_walk(this);
   } else if( model == "langevin_diffusion" ) {
     return langevin_diffusion(this);
+  } else if( model == "starve_npmlangevin" ) {
+    return starve_npmlangevin(this);
   } else {
     error("Unknown model.");
   }
