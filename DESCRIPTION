@@ -23,7 +23,9 @@ Depends:
     TMB
 LinkingTo: 
     Rcpp,
-    RcppEigen
+    RcppEigen,
+    TMB
 Imports: 
+    INLA,
     Rcpp
 LazyData: true

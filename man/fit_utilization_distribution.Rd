@@ -8,7 +8,7 @@ fit_utilization_distribution(
   track_estimate,
   cv_code = 1,
   initial_cv_pars = c(1, 1, 1.5),
-  bbox = sf::st_bbox(track_estimate$pings)
+  bbox = 1.1 * sf::st_bbox(track_estimate$pings)
 )
 }
 \arguments{

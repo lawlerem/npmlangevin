@@ -10,14 +10,6 @@ matrix<Type> conjugate(matrix<Type> Sigma, matrix<Type> K, int q) {
 
 template<class Type>
 Type starve_npmlangevin(objective_function<Type>* obj) {
-  // Boundary effects
-  PARAMETER_VECTOR(boundary_x);
-  PARAMETER_VECTOR(boundary_y);
-  PARAMETER(working_boundary_sharpness);
-  Type boundary_sharpness = exp(working_boundary_sharpness);
-  ADREPORT(boundary_sharpness);
-  boundary_mean<Type> boundary {boundary_x, boundary_y, boundary_sharpness};
-
   // Covariance function
   DATA_INTEGER(cv_code);
   PARAMETER_VECTOR(working_cv_pars);
@@ -26,18 +18,17 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   covariance<Type> cv {cv_pars, cv_code};
 
   // Nearest neighbour graph and random effects
-  DATA_STRUCT(g, nngp_graph);
+  DATA_STRUCT(g, starve_graph);
   PARAMETER_ARRAY(w);
   REPORT(w);
 
-
   // Spatial field for utilization / gradient
-  nngp<Type> field(g, w, boundary, cv);
+  starve_nngp<Type> field(g, w, cv);
   Type field_ll = field.loglikelihood();
 
 
   // Predictions for spatial field
-  DATA_STRUCT(pwg, pred_graph);
+  DATA_STRUCT(pwg, starve_pred_graph);
   vector<Type> pw(pwg.var.size());
 
   for(int i = 0; i < pw.size(); i++) {
@@ -53,7 +44,7 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
 
   // Movement Process
   DATA_MATRIX(coordinates);
-  DATA_STRUCT(field_neighbours, vmint);
+  DATA_STRUCT(field_neighbours, vvint);
 
   matrix<Type> coord_gradients(coordinates.rows(), coordinates.cols());
 
@@ -91,6 +82,7 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   // Observation Noise + random walk movement noise
   DATA_MATRIX(location_differences);
   DATA_IVECTOR(location_quality_class);
+  DATA_IVECTOR(first_location_idx);
 
   DATA_MATRIX(K);
   PARAMETER_VECTOR(working_ping_cov_pars);
@@ -103,9 +95,10 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   ADREPORT(ping_cov);
 
   Type ping_ll = 0.0;
-  for(int t = 0; t < location_differences.rows(); t++) {
-    matrix<Type> Sigma = conjugate(ping_cov, K, location_quality_class(t)) + conjugate(ping_cov, K, location_quality_class(t + 1));
-    ping_ll -= MVNORM<Type>(Sigma)(vector<Type>(location_differences.row(t)));
+  for(int i = 0; i < location_differences.rows(); i++) {
+    matrix<Type> Sigma = conjugate(ping_cov, K, location_quality_class(first_location_idx(i)))
+      + conjugate(ping_cov, K, location_quality_class(first_location_idx(i + 1)));
+    ping_ll -= MVNORM<Type>(Sigma)(vector<Type>(location_differences.row(first_location_idx(i + 1))));
   }
 
 return -1.0 * (field_ll + rw_ll + ping_ll);
