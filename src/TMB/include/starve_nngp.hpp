@@ -22,6 +22,11 @@ class starve_nngp {
             const vector<Type> coords,
             const vector<int> parents
         );
+        Type cross_predict(
+            int var,
+            const vector<Type> coords,
+            const matrix<int> parents // Each row is [w_idx, var]
+        );
 };
 
 template<class Type>
@@ -111,4 +116,48 @@ Type starve_nngp<Type>::predict(
     full_w(0) = cmvn.conditional_mean(full_w, mu)(0);
 
     return full_w(0);
+}
+
+template<class Type>
+Type starve_nngp<Type>::cross_predict(
+      int var,
+      const vector<Type> coords,
+      const matrix<int> parents // Each row is [w_idx, var]
+  ) {
+  vector<Type> full_w(1 + parents.rows());
+  for(int i = 0; i < parents.rows(); i++) {
+    full_w(i + 1) = w(parents(i, 0), parents(i, 1));
+  }
+  vector<Type> mu(full_w.size());
+  mu.setZero();
+
+  matrix<Type> Sigma(full_w.size(), full_w.size());
+  for(int i = 0; i < Sigma.rows(); i++) {
+    for(int j = 0; j < Sigma.cols(); j++) {
+        vector<Type> c1(2);
+        vector<Type>c2(2);
+        int v1;
+        int v2;
+        if( i == 0 ) {
+             c1 = coords;
+             v1 = var;
+        } else {
+            c1 = g.get_coordinates(parents(i - 1, 0));
+            v1 = parents(i - 1, 1);
+        }
+        if( j == 0 ) {
+            c2 = coords;
+            v2 = var;
+        } else {
+            c2 = g.get_coordinates(parents(j - 1, 0));
+            v2 = parents(j - 1, 1);
+        }
+
+        Sigma(i, j) = cv(c1, c2, v1, v2);
+    }
+  }
+  conditional_normal<Type> cmvn(Sigma, parents.rows());
+  full_w(0) = cmvn.conditional_mean(full_w, mu)(0);
+
+  return full_w(0);
 }
