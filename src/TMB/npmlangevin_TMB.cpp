@@ -12,6 +12,9 @@ using namespace density;
 #include "include/loc_track.hpp"
 #include "include/loc_observations.hpp"
 
+#include "include/starve_graph.hpp"
+#include "include/starve_pred_graph.hpp"
+#include "include/starve_nngp.hpp"
 
 #include "model/covariance_1d_deriv.hpp"
 #include "model/nngp_model.hpp"

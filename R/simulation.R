@@ -90,7 +90,7 @@ simulate<- function(
 
 
   true_time<- sort(cumsum(runif(nt, 0, 2)))
-  track_idx<- sort(sample(seq(nt), nping, replace = TRUE))
+  track_idx<- sort(sample(seq(nt), nping, replace = FALSE))
   loc_class<- sample(loc_class_K$q, nping, replace = TRUE, prob = loc_class_probs)
 
   data<- list(

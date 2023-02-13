@@ -29,14 +29,16 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
 
   // Predictions for spatial field
   DATA_STRUCT(pwg, starve_pred_graph);
-  vector<Type> pw(pwg.var.size());
+  matrix<Type> pw(pwg.coord.rows(), pwg.coord.cols());
 
-  for(int i = 0; i < pw.size(); i++) {
-    pw(i) = field.predict(
-      pwg.var(i),
-      pwg.coord.row(i),
-      pwg.parents(i)
-    );
+  for(int i = 0; i < pw.rows(); i++) {
+    for(int v = 0; v < pw.cols(); v++) {
+      pw(i, v) = field.predict(
+        v,
+        pwg.coord.row(i),
+        pwg.parents(i)
+      );
+    }
   }
   REPORT(pw);
   ADREPORT(pw);
@@ -51,7 +53,7 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   for(int t = 0; t < coord_gradients.rows(); t++) {
     for(int v = 0; v < coord_gradients.cols(); v++) {
       coord_gradients(t, v) = field.predict(
-        v + 1, // v = 0 = util distr, 1 = dx, 1 = dy
+        v,
         vector<Type>(coordinates.row(t)),
         field_neighbours.x(t)
       );
@@ -79,10 +81,11 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
     }
   }
 
+  REPORT(location_difference_means);
+
   // Observation Noise + random walk movement noise
   DATA_MATRIX(location_differences);
   DATA_IVECTOR(location_quality_class);
-  DATA_IVECTOR(first_location_idx);
 
   DATA_MATRIX(K);
   PARAMETER_VECTOR(working_ping_cov_pars);
@@ -95,13 +98,17 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   ADREPORT(ping_cov);
 
   Type ping_ll = 0.0;
-  for(int i = 0; i < location_differences.rows(); i++) {
-    matrix<Type> Sigma = conjugate(ping_cov, K, location_quality_class(first_location_idx(i)))
-      + conjugate(ping_cov, K, location_quality_class(first_location_idx(i + 1)));
-    ping_ll -= MVNORM<Type>(Sigma)(vector<Type>(location_differences.row(first_location_idx(i + 1))));
+  for(int t = 0; t < location_differences.rows(); t++) {
+    matrix<Type> Sigma = conjugate(ping_cov, K, location_quality_class(t))
+      + conjugate(ping_cov, K, location_quality_class(t + 1));
+    ping_ll -= MVNORM<Type>(Sigma)(
+      vector<Type>(
+        location_differences.row(t) - location_difference_means.row(t)
+      )
+    );
   }
 
-return -1.0 * (field_ll + rw_ll + ping_ll);
+  return -1.0 * (field_ll + rw_ll + ping_ll);
 }
 
 #undef TMB_OBJECTIVE_PTR

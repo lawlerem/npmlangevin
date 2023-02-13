@@ -22,7 +22,7 @@ class starve_nngp {
             const vector<Type> coords,
             const vector<int> parents
         );
-}
+};
 
 template<class Type>
 vector<Type> starve_nngp<Type>::w_node(int idx, int v) {
@@ -41,11 +41,11 @@ matrix<Type> starve_nngp<Type>::covmat(int idx, int v) {
     for(int i = 0; i < ss.rows(); i++) {
         for(int j = 0; j < ss.cols(); j++) {
             ss(i, j) = cv(
-                g.coordinates(vertices(i)),
-                g.coordinates(vertices(j)),
+                g.get_coordinates(vertices(i)),
+                g.get_coordinates(vertices(j)),
                 v + 1, // 0 = gg, 1 = dxdx, 2 = dydy
                 v + 1 // 0 = gg, 1 = dxdx, 2 = dydy
-            )
+            );
         }
         ss(i, i) *= 1.001; // Add small number to main diagonal for numerical stability
     }
@@ -72,6 +72,7 @@ Type starve_nngp<Type>::loglikelihood() {
             ll += cmvn.loglikelihood(this_w, mu);
         }
     }
+    return ll;
 }
 
 template<class Type>
@@ -82,7 +83,7 @@ Type starve_nngp<Type>::predict(
     ) {
     vector<Type> full_w(1 + parents.size());
     for(int i = 0; i < parents.size(); i++) {
-        full_w(i + 1) = w(parents(i), v);
+        full_w(i + 1) = w(parents(i), var);
     }
     vector<Type> mu(full_w.size());
     mu.setZero();
@@ -92,18 +93,18 @@ Type starve_nngp<Type>::predict(
         for(int j = 0; j < Sigma.cols(); j++) {
             vector<Type> c1(2);
             vector<Type> c2(2);
-            if( i = 0 ) {
+            if( i == 0 ) {
                 c1 = coords;
             } else {
-                c1 = g.coordinates(parents(i - 1));
+                c1 = g.get_coordinates(parents(i - 1));
             }
-            if( j = 0 ) {
+            if( j == 0 ) {
                 c2 = coords;
             } else {
-                c2 = g.coordinates(parents(j - 1));
+                c2 = g.get_coordinates(parents(j - 1));
             }
 
-            Sigma(i, j) = cv(c1, c2, v1 + 1, v2 + 1);
+            Sigma(i, j) = cv(c1, c2, var + 1, var + 1);
         }
     }
     conditional_normal<Type> cmvn(Sigma, parents.size());

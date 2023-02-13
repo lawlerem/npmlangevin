@@ -4,7 +4,7 @@
 \alias{fit_rw}
 \title{Pre-filter a track using a random walk model}
 \usage{
-fit_rw(locations, delta_t)
+fit_rw(locations, delta_t = NA)
 }
 \arguments{
 \item{locations}{An n x 2 sf data.frame (t, q, geom) giving the observed projected coordinates (point geometries), observation time, and location quality class of a movement path. The time column should be either a POSIXt column or a numeric column.}

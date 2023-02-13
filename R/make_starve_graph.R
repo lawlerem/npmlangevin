@@ -3,8 +3,10 @@
 #' @param x An sf object with point locations
 #' @param max.edge The largest allowed triangle edge length. See INLA::inla.mesh.2d.
 #' @param ... Additional options to pass to INLA::inla.mesh.2d.
-#' 
-#' @return Foo
+#'
+#' @return A list with the mesh, node locations, and graph.
+#'
+#' @export
 make_starve_graph<- function(
     x,
     max.edge = 1,
@@ -24,7 +26,7 @@ make_starve_graph<- function(
     mesh_nodes<- mesh_nodes[o, ]
     mesh_graph<- mesh_graph[o, o]
     mesh_graph[lower.tri(mesh_graph)]<- 0
-    
+
     n_init<- 1
     edge_list<- vector(
         mode = "list",
@@ -48,6 +50,7 @@ make_starve_graph<- function(
 
     return(
         list(
+            mesh = mesh,
             coordinates = mesh_nodes,
             edge_list = edge_list
         )

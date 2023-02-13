@@ -28,7 +28,7 @@ class starve_graph {
         int size() { return to_list.size(); }
 
         matrix<Type> get_coordinates() { return coordinates; };
-        vector<Type> coordinates(int i) { return vector<Type>(coordinates.row(i)) };
+        vector<Type> get_coordinates(int i) { return vector<Type>(coordinates.row(i)); };
 
         vector<int> to(int i) { return to_list(i); }
         vector<int> from(int i) { return from_list(i); }
@@ -37,4 +37,4 @@ class starve_graph {
             ans << to(i), from(i);
             return ans;
         }
-}
+};

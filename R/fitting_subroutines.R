@@ -12,9 +12,13 @@
 #'   - parameters parameter estimates
 #'
 #' @export
-fit_rw<- function(locations, delta_t) {
+fit_rw<- function(locations, delta_t = NA) {
   locations<- locations[order(locations$t), , drop = FALSE]
-  regular_t<- seq(min(locations$t), max(locations$t), by = delta_t)
+  if( is.na(delta_t) ) {
+    regular_t<- NULL
+  } else {
+    regular_t<- seq(min(locations$t), max(locations$t), by = delta_t)
+  }
   true_time<- unique(c(locations$t, regular_t))
   true_time<- sort(true_time)
 
