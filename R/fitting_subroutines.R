@@ -70,7 +70,7 @@ fit_rw<- function(locations, delta_t = NA) {
 
 #' Fit a utilization distribution using a filtered movement track estimate
 #'
-#' @param track_estimate The output of fit_rw or fit_langevin, e.g. a list
+#' @param filtered_locations The output of fit_rw, e.g. a list
 #'   - pings An sf data.frame with columns
 #'     - t Time for the location ping
 #'     - q Location quality class for the location ping
@@ -81,172 +81,214 @@ fit_rw<- function(locations, delta_t = NA) {
 #'     - geom Point geometries giving the estimated locations
 #'   - parameters parameter estimates
 #' @param cv_code 0 = exponential (don't use), 1 = gaussian, 2 = matern, 3 = matern32
-#' @param The initial covariance function parameters used to build the nearest neighbour graph. Can either be a length 3 vector (std. dev., range, smoothness) or a k x 3 matrix. If a matrix is supplied, each row will be tested to find which gives the highest likelihood value.
-#' @param bbox A named vector with elements "xmin", "xmax", "ymin", and "ymax"
+#' @param max.edge The maximum edge length for the mesh
+#' @param ... Additional arguments to pass to make_starve_graph
+#'
+#' @return A list with the following elements:
+#'   - filtered_locations: A copy of the filtered_locations argument
+#'   - graph: The mesh used for the random field
+#'   - track_graph: The parents used to connect the track and field
+#'   - opt: The output of nlminb
+#'   - sdr: The output of sdreport
+#'   - cv_code: The covariance function code
+#'   - mesh_predictions: A data.frame containing the field predictions for the mesh.
+#' 
+#' @export
 fit_utilization_distribution<- function(
-    track_estimate,
+    filtered_locations,
     cv_code = 1,
-    initial_cv_pars = c(1, 1, 1.5),
-    bbox = 1.1 * sf::st_bbox(track_estimate$pings)
+    max.edge = 1,
+    ...
   ) {
-  # Create nearest neighbour graph
-  g<- make_nn_graph(
-    x = bbox[c("xmin", "xmax")],
-    y = bbox[c("ymin", "ymax")],
-    cv_pars = initial_cv_pars,
-    cv_code = cv_code
+  pings<- filtered_locations$pings
+  pings$dx<- c(
+    tail(sf::st_coordinates(pings)[, 1], -1) - head(sf::st_coordinates(pings)[, 1], -1),
+    NA
   )
-  track_nn<- find_nearest_four(
-    track_estimate$track,
-    g
+  pings$dy<- c(
+    tail(sf::st_coordinates(pings)[, 2], -1) - head(sf::st_coordinates(pings)[, 2], -1),
+    NA
   )
+  filtered_locations$pings<- pings
 
+  graph<- make_starve_graph(
+    filtered_locations$track,
+    max.edge = max.edge,
+    ...
+  )
+  track_graph<- make_starve_pred_graph(
+    pred_coordinates = filtered_locations$track,
+    field_coordinates = graph$coordinates
+  )
+  
   data<- list(
-    model = "langevin_diffusion",
+    model = "starve_npmlangevin",
     cv_code = cv_code,
     g = list(
-      stars::st_get_dimension_values(g$stars, "x"),
-      stars::st_get_dimension_values(g$stars, "y"),
-      lapply(lapply(g$graph, `[[`, 1), `+`, -1),
-      lapply(lapply(g$graph, `[[`, 2), `+`, -1)
+      sf::st_coordinates(graph$coordinates),
+      lapply(lapply(graph$edge_list, `[[`, 1), `+`, -1),
+      lapply(lapply(graph$edge_list, `[[`, 2), `+`, -1)
     ),
     pwg = list(
-      var = integer(0),
       coord = matrix(0, nrow = 0, ncol = 2),
       parents = list()
     ),
-    field_neighbours = lapply(track_nn, `+`, -1),
-    true_time = track_estimate$track$t,
-    pings = list(
-      coords = unname(sf::st_coordinates(track_estimate$pings)),
-      loc_class = as.numeric(track_estimate$pings$q) - 1,
-      track_idx = match(track_estimate$pings$t, track_estimate$track$t) - 1,
-      K = as.matrix(loc_class_K[, c("x", "y")])
-    )
+    coordinates = sf::st_coordinates(filtered_locations$track),
+    field_neighbours = lapply(track_graph$parents, `+`, -1),
+    time = filtered_locations$track$t,
+    location_differences = as.matrix(
+      head(
+        filtered_locations$pings[, c("dx", "dy"), drop = TRUE],
+        -1
+      )
+    ),
+    location_quality_class = as.numeric(filtered_locations$pings$q) - 1,
+    K = as.matrix(loc_class_K[, c("x", "y")])
   )
   para<- list(
-    boundary_x = bbox[c("xmin", "xmax")],
-    boundary_y = bbox[c("ymin", "ymax")],
-    working_boundary_sharpness = log(0),
-    working_cv_pars = log(initial_cv_pars),
-    w = g$stars$w,
-    true_coord = sf::st_coordinates(track_estimate$track),
-    log_gamma = track_estimate$parameters["log_gamma"],
-    working_ping_cov_pars = track_estimate$parameters[names(track_estimate$parameters) == "working_obs_cov_pars"]
-  )
-  map<- list(
-    boundary_x = as.factor(
-      c(NA, NA)
-    ),
-    boundary_y = as.factor(
-      c(NA, NA)
-    ),
-    working_boundary_sharpness = as.factor(
-      NA
-    ),
-    working_cv_pars = as.factor(
-      c(1, 2, NA)
-    ),
-    true_coord = as.factor(
-      matrix(NA, nrow = nrow(para$true_coord), ncol = ncol(para$true_coord))
-    ),
-    log_gamma = as.factor(NA),
-    working_ping_cov_pars  = as.factor(
-      rep(NA, length(para$working_ping_cov_pars))
-    )
+    working_cv_pars = log(c(1, 1)),
+    w = matrix(0, nrow = nrow(graph$coordinates), ncol = 2),
+    random_walk = matrix(0, nrow = nrow(filtered_locations$track) - 1, ncol = 2),
+    log_gamma = 0.1 * filtered_locations$parameters[["log_gamma"]],
+    working_ping_cov_pars = filtered_locations$parameters[
+      names(filtered_locations$parameters) %in% c("working_obs_cov_pars")
+    ]
   )
   obj<- TMB::MakeADFun(
     data = data,
     para = para,
-    map = map,
-    random = c("w", "true_coord"),
+    random = c("w", "random_walk"),
     DLL = "npmlangevin_TMB"
   )
-  opt<- nlminb(obj$par, obj$fn, obj$gr)
-  sdr<- TMB::sdreport(obj, opt$par)
-
-
-  ###
-  ### Refit with updated graph
-  ###
-  updated_cv_pars<- c(exp(opt$par), 1.5)
-  g<- make_nn_graph(
-    x = bbox[c("xmin", "xmax")],
-    y = bbox[c("ymin", "ymax")],
-    cv_pars = exp(opt$par),
-    cv_code = cv_code
+  opt<- nlminb(
+    obj$par,
+    obj$fn,
+    obj$gr
   )
-  track_nn<- find_nearest_four(
-    track_estimate$track,
-    g
+  sdr<- TMB::sdreport(
+    obj,
+    opt$par
   )
 
-  data<- list(
-    model = "langevin_diffusion",
+  pwg<- make_starve_gg_pred_graph(
+    pred_coordinates = graph$coordinates,
+    field_coordinates = graph$coordinates,
+    cv_pars = as.list(sdr, "Est", report = TRUE)$cv_pars,
     cv_code = cv_code,
-    g = list(
-      stars::st_get_dimension_values(g$stars, "x"),
-      stars::st_get_dimension_values(g$stars, "y"),
-      lapply(lapply(g$graph, `[[`, 1), `+`, -1),
-      lapply(lapply(g$graph, `[[`, 2), `+`, -1)
-    ),
-    pwg = list(
-      var = integer(0),
-      coord = matrix(0, nrow = 0, ncol = 2),
-      parents = list()
-    ),
-    field_neighbours = lapply(track_nn, `+`, -1),
-    true_time = track_estimate$track$t,
-    pings = list(
-      coords = unname(sf::st_coordinates(track_estimate$pings)),
-      loc_class = as.numeric(track_estimate$pings$q) - 1,
-      track_idx = match(track_estimate$pings$t, track_estimate$track$t) - 1,
-      K = as.matrix(loc_class_K[, c("x", "y")])
-    )
+    k = 1
   )
-  para<- list(
-    boundary_x = bbox[c("xmin", "xmax")],
-    boundary_y = bbox[c("ymin", "ymax")],
-    working_boundary_sharpness = log(1),
-    working_cv_pars = log(initial_cv_pars),
-    w = g$stars$w,
-    pw = numeric(0),
-    true_coord = unname(sf::st_coordinates(track_estimate$track)),
-    log_gamma = track_estimate$parameters["log_gamma"],
-    working_ping_cov_pars = track_estimate$parameters[names(track_estimate$parameters) == "working_obs_cov_pars"]
-  )
-  map<- list(
-    boundary_x = as.factor(
-      c(NA, NA)
-    ),
-    boundary_y = as.factor(
-      c(NA, NA)
-    ),
-    working_boundary_sharpness = as.factor(
-      NA
-    ),
-    working_cv_pars = as.factor(
-      c(1, 2, NA)
-    ),
-    true_coord = as.factor(
-      matrix(NA, nrow = nrow(para$true_coord), ncol = ncol(para$true_coord))
-    ),
-    log_gamma = as.factor(NA),
-    working_ping_cov_pars  = as.factor(
-      rep(NA, length(para$working_ping_cov_pars))
-    )
-  )
+  data$pwg[[1]]<- sf::st_coordinates(pwg$coordinates)
+  data$pwg[[2]]<- lapply(pwg$parents, `+`, -1)
   obj<- TMB::MakeADFun(
     data = data,
     para = para,
-    map = map,
-    random = c("w", "pw", "true_coord"),
+    random = c("w", "random_walk"),
     DLL = "npmlangevin_TMB"
   )
-  opt<- nlminb(obj$par, obj$fn, obj$gr)
+  obj$fn(opt$par)
+  sdr<- sdreport(
+    obj,
+    opt$par
+  )
+  mesh_predictions<- sf::st_as_sf(
+    data.frame(
+      as.list(sdr, "Est", report = TRUE)$pw,
+      as.list(sdr, "Est")$w,
+      as.list(sdr, "Std", report = TRUE)$pw,
+      as.list(sdr, "Std")$w,
+      graph$coordinates
+    )
+  )
+  colnames(mesh_predictions)[1:6]<- c("g", "dx", "dy", "g_se", "dx_se", "dy_se")
 
-  #
-  sdr<- TMB::sdreport(obj, opt$par)
-  sdr_est<- as.list(sdr, "Est")
-  sdr_se<- as.list(sdr, "Std")
+  return(
+    list(
+      filtered_locations = filtered_locations,
+      graph = graph,
+      track_graph = track_graph,
+      opt = opt,
+      sdr = sdr,
+      cv_code = cv_code,
+      mesh_predictions = mesh_predictions
+    )
+  )
 }
+
+
+#' Use a fitted langevin diffusion model to predict the utilization distribution
+#' 
+#' @param prediction_locations An sf object with point geometries
+#' @param fitted_model The output of fit_utilization_distribution
+#' @param k The number of parents in each direction
+#' 
+#' @return An sf object with predictions for the log-utilization distribution
+#' 
+#' @export
+predict_utilization_distribution<- function(
+    prediction_locations,
+    fitted_model,
+    k = 1,
+    ...
+  ) {
+  fm<- fitted_model
+  pwg<- make_starve_gg_pred_graph(
+    pred_coordinates = prediction_locations,
+    field_coordinates = fm$graph$coordinates,
+    cv_pars = as.list(fm$sdr, "Est", report = TRUE)$cv_pars,
+    cv_code = fm$cv_code,
+    k = k
+  )
+  data<- list(
+    model = "starve_npmlangevin",
+    cv_code = fm$cv_code,
+    g = list(
+      sf::st_coordinates(fm$graph$coordinates),
+      lapply(lapply(fm$graph$edge_list, `[[`, 1), `+`, -1),
+      lapply(lapply(fm$graph$edge_list, `[[`, 2), `+`, -1)
+    ),
+    pwg = list(
+      sf::st_coordinates(pwg$coordinates),
+      lapply(pwg$parents, `+`, -1)
+    ),
+    coordinates = sf::st_coordinates(fm$filtered_locations$track),
+    field_neighbours = lapply(fm$track_graph$parents, `+`, -1),
+    time = fm$filtered_locations$track$t,
+    location_differences = as.matrix(
+      head(
+        fm$filtered_locations$pings[, c("dx", "dy"), drop = TRUE],
+        -1
+      )
+    ),
+    location_quality_class = as.numeric(fm$filtered_locations$pings$q) - 1,
+    K = as.matrix(loc_class_K[, c("x", "y")])
+  )
+  para<- list(
+    working_cv_pars = c(0, 0),
+    w = matrix(0, nrow = nrow(fm$graph$coordinates), ncol = 2),
+    random_walk = matrix(0, nrow = nrow(fm$filtered_locations$track) - 1, ncol = 2),
+    log_gamma = 0.1 * fm$filtered_locations$parameters[["log_gamma"]],
+    working_ping_cov_pars = filtered_locations$parameters[
+      names(fm$filtered_locations$parameters) %in% c("working_obs_cov_pars")
+    ]
+  )
+  obj<- TMB::MakeADFun(
+    data = data,
+    para = para,
+    random = c("w", "random_walk"),
+    DLL = "npmlangevin_TMB"
+  )
+  obj$fn(fm$opt$par)
+  sdr<- sdreport(
+    obj,
+    fm$opt$par
+  )
+  predictions<- sf::st_as_sf(
+    data.frame(
+      g = as.list(sdr, "Est", report = TRUE)$pw,
+      g_se = as.list(sdr, "Std", report = TRUE)$pw,
+      pwg$coordinates
+    )
+  )
+  return(predictions)
+}
+

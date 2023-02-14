@@ -5,14 +5,14 @@
 \title{Fit a utilization distribution using a filtered movement track estimate}
 \usage{
 fit_utilization_distribution(
-  track_estimate,
+  filtered_locations,
   cv_code = 1,
-  initial_cv_pars = c(1, 1, 1.5),
-  bbox = 1.1 * sf::st_bbox(track_estimate$pings)
+  max.edge = 1,
+  ...
 )
 }
 \arguments{
-\item{track_estimate}{The output of fit_rw or fit_langevin, e.g. a list
+\item{filtered_locations}{The output of fit_rw, e.g. a list
 \itemize{
 \item pings An sf data.frame with columns
 \itemize{
@@ -31,9 +31,21 @@ fit_utilization_distribution(
 
 \item{cv_code}{0 = exponential (don't use), 1 = gaussian, 2 = matern, 3 = matern32}
 
-\item{bbox}{A named vector with elements "xmin", "xmax", "ymin", and "ymax"}
+\item{max.edge}{The maximum edge length for the mesh}
 
-\item{The}{initial covariance function parameters used to build the nearest neighbour graph. Can either be a length 3 vector (std. dev., range, smoothness) or a k x 3 matrix. If a matrix is supplied, each row will be tested to find which gives the highest likelihood value.}
+\item{...}{Additional arguments to pass to make_starve_graph}
+}
+\value{
+A list with the following elements:
+\itemize{
+\item filtered_locations: A copy of the filtered_locations argument
+\item graph: The mesh used for the random field
+\item track_graph: The parents used to connect the track and field
+\item opt: The output of nlminb
+\item sdr: The output of sdreport
+\item cv_code: The covariance function code
+\item mesh_predictions: A data.frame containing the field predictions for the mesh.
+}
 }
 \description{
 Fit a utilization distribution using a filtered movement track estimate

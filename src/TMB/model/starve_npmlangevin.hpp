@@ -30,14 +30,19 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   // Predictions for utilization distribution
   DATA_STRUCT(pwg, starve_pred_graph);
   vector<Type> pw(pwg.coord.rows());
+  vector<matrix<Type> > Sigmas(pw.size());
 
   for(int i = 0; i < pw.rows(); i++) {
+      matrix<Type> this_Sigma = Sigmas(i);
       pw(i) = field.cross_predict(
         0,
         pwg.coord.row(i),
-        pwg.parents(i)
+        pwg.parents(i),
+        this_Sigma
       );
+      Sigmas(i) = this_Sigma;
   }
+  REPORT(Sigmas);
   REPORT(pw);
   ADREPORT(pw);
 
