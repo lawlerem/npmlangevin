@@ -9,7 +9,7 @@
 #'   - graph: A directed acyclic graph
 #'
 #' @export
-make_nn_graph<- function(xlim, ylim, cv_pars = c(1, 0.3, 2.5), cv_code = 2) {
+make_nn_graph<- function(xlim, ylim, cv_pars = c(1, 0.3, 2.5), cv_code = 1) {
   gr_obj<- MakeADFun(
     data = list(
       model = "covariance_1d_deriv",

@@ -4,7 +4,7 @@
 \alias{make_nn_graph}
 \title{Make a nearest neighbour grid optimized for a covariance function}
 \usage{
-make_nn_graph(xlim, ylim, cv_pars = c(1, 0.3, 2.5), cv_code = 2)
+make_nn_graph(xlim, ylim, cv_pars = c(1, 0.3, 2.5), cv_code = 1)
 }
 \arguments{
 \item{xlim, }{ylim Vectors of length 2 giving the desired bounding box.}

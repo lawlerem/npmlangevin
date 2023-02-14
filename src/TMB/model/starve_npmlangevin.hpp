@@ -27,18 +27,16 @@ Type starve_npmlangevin(objective_function<Type>* obj) {
   Type field_ll = field.loglikelihood();
 
 
-  // Predictions for spatial field
+  // Predictions for utilization distribution
   DATA_STRUCT(pwg, starve_pred_graph);
-  matrix<Type> pw(pwg.coord.rows(), pwg.coord.cols());
+  vector<Type> pw(pwg.coord.rows());
 
   for(int i = 0; i < pw.rows(); i++) {
-    for(int v = 0; v < pw.cols(); v++) {
-      pw(i, v) = field.predict(
-        v,
+      pw(i) = field.cross_predict(
+        0,
         pwg.coord.row(i),
         pwg.parents(i)
       );
-    }
   }
   REPORT(pw);
   ADREPORT(pw);

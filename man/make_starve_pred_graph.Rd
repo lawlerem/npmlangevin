@@ -4,7 +4,7 @@
 \alias{make_starve_pred_graph}
 \title{Create a prediction graph}
 \usage{
-make_starve_pred_graph(pred_coordinates, field_coordinates)
+make_starve_pred_graph(pred_coordinates, field_coordinates, k = 3)
 }
 \arguments{
 \item{pred_coordinates}{An sf data.frame with point geometries. The
@@ -12,6 +12,8 @@ locations for which predictions will be made.}
 
 \item{field_coordinates}{An sf data.frame with point geometries. The
 locations used in the mesh.}
+
+\item{k}{The number of parents to use.}
 }
 \value{
 A list with the prediction coordinates and list of parents.
