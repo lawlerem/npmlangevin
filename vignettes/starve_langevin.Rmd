@@ -16,18 +16,21 @@ vignette: >
 
 ```{r setup}
 library(npmlangevin)
-# set.seed(5108)
+seed<- sample(10000, size = 1)
+set.seed(seed)
+set.seed(7424)
+# set.seed(3249)
 ```
 
 ```{r simulate}
 sim<- simulate(
     nt = 500,
     nping = 400,
-    boundary_sharpness = 0,
-    boundary_limit = 1,
+    boundary_sharpness = 0.5,
+    boundary_limit = 0.8,
     pred_loc_delta = 0.5,
     ping_tau = 0.1 * c(1, 1),
-    gamma = 0.05,
+    gamma = 0.07,
     cv_code = 1,
     cv_pars = c(0.15, 0.3, 1),
     # loc_class_probs = c(
@@ -51,21 +54,6 @@ sim<- simulate(
 )
 ```
 
-```{r}
-print(
-    with(
-        sim$tmap,
-        {
-            tmap_arrange(
-                pred_field + track + pings,
-                pred_util + track + pings,
-                nrow = 2
-            )
-        }
-    )
-)
-```
-
 
 # Fit data
 
@@ -81,7 +69,31 @@ estimated_field<- fit_utilization_distribution(
 )
 ```
 
+
+
+
+
+
+
 # Plot results
+
+## Simulation
+
+```{r}
+print(
+    with(
+        sim$tmap,
+        {
+            tmap_arrange(
+                pred_field + track + pings,
+                pred_util + track + pings,
+                nrow = 2
+            )
+        }
+    )
+)
+```
+
 
 ## Filtered track
 
@@ -131,6 +143,7 @@ sim$tmap$track +
 # Get predictions
 
 ```{r}
+gamma<- c(as.list(estimated_field$sdr, report = TRUE, "Est")$gamma)
 bbox<- st_bbox(sim$field)
 r<- raster(
   xmn = bbox["xmin"],
@@ -151,7 +164,7 @@ pred_r<- stars::st_rasterize(
   pred_locations,
   template = stars::st_as_stars(r)
 )
-pred_r$util<- exp(pred_r$g)
+pred_r$util<- exp(pred_r$g * gamma^(-1))
 pred_r$util<- pred_r$util / sum(pred_r$util)
 ```
 
@@ -161,8 +174,22 @@ tm_shape(pred_r["util"], master = TRUE) +
       style = "cont",
       interpolate = FALSE,
       palette = "Greens"
-    ) + 
-  sim$tmap$track
+    ) +
+  sim$tmap$track +
+  filtered_tm
+```
+
+```{r}
+tmap_arrange(
+  sim$tmap$pred_util,
+  tm_shape(pred_r["util"]) +
+    tm_raster(
+      style = "cont",
+      interpolate = TRUE,
+      palette = "Greens"
+    ),
+  ncol = 2
+)
 ```
 
 ```{r}
