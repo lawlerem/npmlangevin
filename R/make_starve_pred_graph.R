@@ -50,9 +50,11 @@ make_starve_gg_pred_graph<- function(
   #   that are closest to being distance r away, where r is inflection point of covariance function
   #   For boundaries, take the closest point to being distance r away that doesn't cross a boundary.
   shift_neighbour<- function(shift, pred_coordinates, field_coordinates) {
+    crs<- sf::st_crs(pred_coordinates)
     pred_coordinates<- sf::st_coordinates(pred_coordinates)
     pred_coordinates<- data.frame(t(t(pred_coordinates) + shift))
     pred_coordinates<- sf::st_as_sf(pred_coordinates, coords = c(1, 2))
+    sf::st_crs(pred_coordinates)<- crs
     nn<- nngeo::st_nn(
       pred_coordinates,
       field_coordinates,
